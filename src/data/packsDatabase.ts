@@ -1,0 +1,77 @@
+import { Pack } from '../types';
+
+export const PACKS_LIST: Pack[] = [
+  {
+    id: 'pack-gold-rare',
+    name: 'Gold Rare Pack',
+    description: 'Guaranteed 80+ OVR Gold Player. Perfect to start building your squad!',
+    costCoins: 25000,
+    costPoints: 100,
+    image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=400',
+    minOvr: 80,
+    maxOvr: 91,
+    badge: 'GOLD RARE',
+    color: 'from-amber-600 via-yellow-500 to-amber-700',
+    cardCount: 1,
+    walkoutOdds: '15%'
+  },
+  {
+    id: 'pack-toty-special',
+    name: 'TOTY Super Pack',
+    description: 'High chance for Team of the Year superstars like Messi, Mbappé & Haaland!',
+    costCoins: 150000,
+    costPoints: 500,
+    image: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&q=80&w=400',
+    minOvr: 86,
+    maxOvr: 98,
+    badge: 'TOTY SPECIAL',
+    color: 'from-blue-600 via-cyan-400 to-indigo-900',
+    guaranteedRarity: 'TOTY',
+    cardCount: 1,
+    walkoutOdds: '60%'
+  },
+  {
+    id: 'pack-prime-icons',
+    name: 'Prime ICONS Pack',
+    description: 'Contains legendary icons of football history: Pelé, Maradona, Zidane, R9!',
+    costCoins: 500000,
+    costPoints: 1500,
+    image: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&q=80&w=400',
+    minOvr: 90,
+    maxOvr: 98,
+    badge: 'PRIME ICON',
+    color: 'from-amber-300 via-yellow-200 to-amber-600',
+    guaranteedRarity: 'PRIME_ICON',
+    cardCount: 1,
+    walkoutOdds: '90%'
+  },
+  {
+    id: 'pack-paper-legends',
+    name: 'ICONS Paper FC Pack',
+    description: 'Exclusive Paper FC promotional players with mega upgraded attributes!',
+    costCoins: 300000,
+    costPoints: 1000,
+    image: 'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?auto=format&fit=crop&q=80&w=400',
+    minOvr: 88,
+    maxOvr: 96,
+    badge: 'PAPER LEGEND',
+    color: 'from-emerald-500 via-teal-400 to-green-700',
+    guaranteedRarity: 'PAPER_LEGEND',
+    cardCount: 1,
+    walkoutOdds: '75%'
+  },
+  {
+    id: 'pack-aydin-god',
+    name: 'Aydin 99 God Pack',
+    description: 'Aydin Admin Special Pack. Guaranteed 95+ OVR Walkout with 99 King Aydin chance!',
+    costCoins: 1000000,
+    costPoints: 3000,
+    image: 'https://images.unsplash.com/photo-1569517282132-25d22f4573e6?auto=format&fit=crop&q=80&w=400',
+    minOvr: 95,
+    maxOvr: 99,
+    badge: 'AYDIN GOD PACK',
+    color: 'from-purple-600 via-pink-500 to-red-600',
+    cardCount: 1,
+    walkoutOdds: '100%'
+  }
+];

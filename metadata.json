@@ -1,0 +1,6 @@
+{
+  "name": "ICONS Paper FC",
+  "description": "Ultimate EA FC Mobile inspired Football Pack Opening, Squad Builder, and Card Collection with Aydin Admin Controls",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
