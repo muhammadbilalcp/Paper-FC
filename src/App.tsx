@@ -52,8 +52,8 @@ const DEFAULT_GUEST_ACCOUNT: UserAccount = {
   username: 'New_Player',
   passwordHash: '1234',
   isAdmin: false,
-  coins: 0,
-  points: 0,
+  coins: 15000,
+  points: 15000,
   inventory: [],
   squad: {
     formation: '4-3-3',
@@ -68,7 +68,19 @@ export default function App() {
   const [users, setUsers] = useState<UserAccount[]>(() => {
     try {
       const saved = localStorage.getItem('icons_paper_fc_users_v2');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: UserAccount[] = JSON.parse(saved);
+        return parsed.map((u) => {
+          if (!u.isAdmin && u.coins < 15000 && u.packsOpened === 0) {
+            return {
+              ...u,
+              coins: 15000,
+              points: Math.max(u.points, 15000)
+            };
+          }
+          return u;
+        });
+      }
     } catch {
       // Fallback
     }
@@ -141,9 +153,14 @@ export default function App() {
 
   const handleUpdateCurrentUser = (updatedUser: UserAccount) => {
     setCurrentUser(updatedUser);
-    setUsers((prevUsers) =>
-      prevUsers.map((u) => (u.id === updatedUser.id ? updatedUser : u))
-    );
+    setUsers((prevUsers) => {
+      const exists = prevUsers.some((u) => u.id === updatedUser.id);
+      if (exists) {
+        return prevUsers.map((u) => (u.id === updatedUser.id ? updatedUser : u));
+      } else {
+        return [...prevUsers, updatedUser];
+      }
+    });
   };
 
   const handleOpenPack = (pack: typeof PACKS_LIST[0], currency: 'COINS' | 'POINTS') => {
@@ -443,9 +460,21 @@ export default function App() {
             allUsers={users}
             homeUpdates={homeUpdates}
             onUpdateUser={(updated) => {
-              setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
-              if (updated.id === currentUser.id) {
+              setUsers((prev) => {
+                const exists = prev.some((u) => u.id === updated.id);
+                return exists
+                  ? prev.map((u) => (u.id === updated.id ? updated : u))
+                  : [...prev, updated];
+              });
+              if (currentUser && updated.id === currentUser.id) {
                 setCurrentUser(updated);
+              }
+            }}
+            onUpdateAllUsers={(updatedUsers) => {
+              setUsers(updatedUsers);
+              if (currentUser) {
+                const found = updatedUsers.find((u) => u.id === currentUser.id);
+                if (found) setCurrentUser(found);
               }
             }}
             onAddHomeUpdate={handleAddHomeUpdate}
@@ -468,10 +497,7 @@ export default function App() {
         <AuthModal
           allUsers={users}
           onLoginSuccess={(u) => handleUpdateCurrentUser(u)}
-          onRegisterSuccess={(nu) => {
-            setUsers((prev) => [...prev, nu]);
-            handleUpdateCurrentUser(nu);
-          }}
+          onRegisterSuccess={(nu) => handleUpdateCurrentUser(nu)}
           onClose={() => setIsAuthOpen(false)}
         />
       )}

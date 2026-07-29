@@ -4,8 +4,8 @@ export const PACKS_LIST: Pack[] = [
   {
     id: 'pack-gold-rare',
     name: 'Gold Rare Pack',
-    description: 'Guaranteed 80+ OVR Gold Player. Perfect to start building your squad!',
-    costCoins: 25000,
+    description: 'Guaranteed 80+ OVR Gold Player. Open your first pack now with 15k starter bonus!',
+    costCoins: 15000,
     costPoints: 100,
     image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=400',
     minOvr: 80,

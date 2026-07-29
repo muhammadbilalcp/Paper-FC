@@ -67,8 +67,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       username: trimmedUser,
       passwordHash: password,
       isAdmin,
-      coins: isAdmin ? 999999999 : 0,
-      points: isAdmin ? 999999999 : 0,
+      coins: isAdmin ? 999999999 : 15000,
+      points: isAdmin ? 999999999 : 15000,
       inventory: [],
       squad: {
         formation: '4-3-3',
@@ -105,7 +105,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             PAPER <span className="text-green-400">FC</span> GATEWAY
           </h2>
           <p className="text-xs text-gray-400">
-            Welcome! Log in or create an account to start playing.
+            Welcome! Create an account to receive 15,000 Coins & Paper Cash starter bonus to open your first pack!
           </p>
         </div>
 

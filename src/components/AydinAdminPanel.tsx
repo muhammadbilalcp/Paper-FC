@@ -8,6 +8,7 @@ interface AydinAdminPanelProps {
   allUsers: UserAccount[];
   homeUpdates?: HomeScreenUpdate[];
   onUpdateUser: (updatedUser: UserAccount) => void;
+  onUpdateAllUsers?: (updatedUsers: UserAccount[]) => void;
   onAddHomeUpdate?: (newUpdate: HomeScreenUpdate) => void;
   onDeleteHomeUpdate?: (updateId: string) => void;
 }
@@ -17,6 +18,7 @@ export const AydinAdminPanel: React.FC<AydinAdminPanelProps> = ({
   allUsers,
   homeUpdates = [],
   onUpdateUser,
+  onUpdateAllUsers,
   onAddHomeUpdate,
   onDeleteHomeUpdate
 }) => {
@@ -341,12 +343,12 @@ export const AydinAdminPanel: React.FC<AydinAdminPanelProps> = ({
             <button
               onClick={() => {
                 soundFx.playCoinSound();
-                allUsers.forEach((u) => {
-                  onUpdateUser({
-                    ...u,
-                    points: u.points + 1000000
-                  });
-                });
+                const updated = allUsers.map((u) => ({ ...u, points: u.points + 1000000 }));
+                if (onUpdateAllUsers) {
+                  onUpdateAllUsers(updated);
+                } else {
+                  updated.forEach((u) => onUpdateUser(u));
+                }
                 alert('Granted $1,000,000 Paper Cash to ALL registered players!');
               }}
               className="px-3 py-1.5 bg-green-500 hover:bg-green-400 text-black font-black text-xs uppercase tracking-wider rounded-xl shadow transition cursor-pointer"
@@ -356,12 +358,12 @@ export const AydinAdminPanel: React.FC<AydinAdminPanelProps> = ({
             <button
               onClick={() => {
                 soundFx.playCoinSound();
-                allUsers.forEach((u) => {
-                  onUpdateUser({
-                    ...u,
-                    coins: u.coins + 5000000
-                  });
-                });
+                const updated = allUsers.map((u) => ({ ...u, coins: u.coins + 5000000 }));
+                if (onUpdateAllUsers) {
+                  onUpdateAllUsers(updated);
+                } else {
+                  updated.forEach((u) => onUpdateUser(u));
+                }
                 alert('Granted 5,000,000 FC Coins to ALL registered players!');
               }}
               className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-black text-xs uppercase tracking-wider rounded-xl shadow transition cursor-pointer"
