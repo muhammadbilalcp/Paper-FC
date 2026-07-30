@@ -9,6 +9,7 @@ interface AydinAdminPanelProps {
   homeUpdates?: HomeScreenUpdate[];
   onUpdateUser: (updatedUser: UserAccount) => void;
   onUpdateAllUsers?: (updatedUsers: UserAccount[]) => void;
+  onRefreshUsers?: () => void;
   onAddHomeUpdate?: (newUpdate: HomeScreenUpdate) => void;
   onDeleteHomeUpdate?: (updateId: string) => void;
 }
@@ -19,10 +20,12 @@ export const AydinAdminPanel: React.FC<AydinAdminPanelProps> = ({
   homeUpdates = [],
   onUpdateUser,
   onUpdateAllUsers,
+  onRefreshUsers,
   onAddHomeUpdate,
   onDeleteHomeUpdate
 }) => {
   const [selectedUsername, setSelectedUsername] = useState<string>(allUsers[0]?.username || currentUser.username);
+  const [userSearchQuery, setUserSearchQuery] = useState<string>('');
   const [cashAmount, setCashAmount] = useState<number>(1000000);
   const [coinsAmount, setCoinsAmount] = useState<number>(5000000);
   const [selectedCardId, setSelectedCardId] = useState<string>(INITIAL_PLAYER_DATABASE[0].id);
@@ -333,13 +336,39 @@ export const AydinAdminPanel: React.FC<AydinAdminPanelProps> = ({
               👥
             </div>
             <div>
-              <h3 className="text-xl font-black text-white">PAPER FC PLAYER ACCOUNTS CONTROL TABLE</h3>
-              <p className="text-xs text-gray-400 font-mono">Conductor Aydin Control Hub: Grant Paper Cash, FC Coins, or Diamond Cards to players</p>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xl font-black text-white">ALL REGISTERED ACCOUNTS TABLE</h3>
+                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-black px-2.5 py-0.5 rounded-full font-mono">
+                  {allUsers.length} PLAYERS
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 font-mono">Conductor Aydin Hub: Grant Paper Cash, FC Coins, or Cards to any registered player</p>
             </div>
           </div>
 
-          {/* Mass Grant Controls */}
+          {/* Search & Refresh & Mass Grant Controls */}
           <div className="flex items-center gap-2 flex-wrap">
+            <input
+              type="text"
+              placeholder="Search username..."
+              value={userSearchQuery}
+              onChange={(e) => setUserSearchQuery(e.target.value)}
+              className="bg-black/80 border border-white/20 rounded-xl px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 font-mono w-36 sm:w-48"
+            />
+
+            {onRefreshUsers && (
+              <button
+                onClick={() => {
+                  soundFx.playClick();
+                  onRefreshUsers();
+                  alert('Refreshed all player accounts!');
+                }}
+                className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs uppercase tracking-wider rounded-xl shadow transition cursor-pointer flex items-center gap-1"
+              >
+                🔄 REFRESH
+              </button>
+            )}
+
             <button
               onClick={() => {
                 soundFx.playCoinSound();
@@ -353,7 +382,7 @@ export const AydinAdminPanel: React.FC<AydinAdminPanelProps> = ({
               }}
               className="px-3 py-1.5 bg-green-500 hover:bg-green-400 text-black font-black text-xs uppercase tracking-wider rounded-xl shadow transition cursor-pointer"
             >
-              💵 GIVE $1M TO ALL PLAYERS
+              💵 GIVE $1M TO ALL
             </button>
             <button
               onClick={() => {
@@ -386,7 +415,9 @@ export const AydinAdminPanel: React.FC<AydinAdminPanelProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-white/10">
-              {allUsers.map((u) => (
+              {allUsers
+                .filter((u) => u.username.toLowerCase().includes(userSearchQuery.toLowerCase()))
+                .map((u) => (
                 <tr key={u.id} className="hover:bg-white/5 transition">
                   <td className="p-3 font-bold text-white flex items-center gap-2">
                     <span className="w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-black flex items-center justify-center text-xs">

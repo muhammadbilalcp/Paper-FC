@@ -1,6 +1,7 @@
 import React from 'react';
 import { UserAccount } from '../types';
 import { soundFx } from '../utils/audio';
+import { MusicPlayer } from './MusicPlayer';
 
 interface NavbarProps {
   currentUser: UserAccount;
@@ -110,9 +111,12 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       {/* User Profile & Balances */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 sm:gap-4">
+        {/* FC Mobile Music Player */}
+        <MusicPlayer />
+
         {/* Balances Pill */}
-        <div className="hidden md:flex items-center gap-3 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl font-mono text-xs">
+        <div className="hidden lg:flex items-center gap-3 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl font-mono text-xs">
           <div className="flex items-center gap-1.5" title="Paper Cash ($)">
             <span className="text-green-400 font-extrabold">$</span>
             <span className="text-white font-bold">{currentUser.points.toLocaleString()}</span>

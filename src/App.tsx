@@ -133,10 +133,40 @@ export default function App() {
 
   const [inventorySearch, setInventorySearch] = useState('');
 
+  // Auto Sync across tabs & windows
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'icons_paper_fc_users_v2' && e.newValue) {
+        try {
+          const freshUsers: UserAccount[] = JSON.parse(e.newValue);
+          setUsers(freshUsers);
+        } catch {
+          // Fail gracefully
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  const handleReloadUsers = () => {
+    try {
+      const saved = localStorage.getItem('icons_paper_fc_users_v2');
+      if (saved) {
+        const parsed: UserAccount[] = JSON.parse(saved);
+        setUsers(parsed);
+      }
+    } catch {
+      // Fail gracefully
+    }
+  };
+
   useEffect(() => {
     try {
       localStorage.setItem('icons_paper_fc_users_v2', JSON.stringify(users));
-      localStorage.setItem('icons_paper_fc_current_user_v2', JSON.stringify(currentUser));
+      if (currentUser) {
+        localStorage.setItem('icons_paper_fc_current_user_v2', JSON.stringify(currentUser));
+      }
       localStorage.setItem('icons_paper_fc_updates_v1', JSON.stringify(homeUpdates));
     } catch {
       // Fail gracefully
@@ -459,6 +489,7 @@ export default function App() {
             currentUser={currentUser}
             allUsers={users}
             homeUpdates={homeUpdates}
+            onRefreshUsers={handleReloadUsers}
             onUpdateUser={(updated) => {
               setUsers((prev) => {
                 const exists = prev.some((u) => u.id === updated.id);
