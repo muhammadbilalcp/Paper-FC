@@ -166,6 +166,38 @@ export const PRESET_ACCOUNTS: UserAccount[] = [
   }
 ];
 
+// Combine local presets with incoming list
+function mergePresetAccounts(usersList: UserAccount[]): UserAccount[] {
+  const combined = [...usersList];
+  let updated = false;
+
+  for (const preset of PRESET_ACCOUNTS) {
+    const matchIndex = combined.findIndex(
+      (u) =>
+        u.username.toLowerCase() === preset.username.toLowerCase() ||
+        u.id === preset.id ||
+        (u.frontName && u.frontName.toLowerCase().includes(preset.username.toLowerCase()))
+    );
+
+    if (matchIndex === -1) {
+      combined.push(preset);
+      updated = true;
+    } else {
+      // Ensure passwordHash matches PRESET_ACCOUNTS
+      if (combined[matchIndex].passwordHash !== preset.passwordHash) {
+        combined[matchIndex] = {
+          ...combined[matchIndex],
+          passwordHash: preset.passwordHash,
+          frontName: preset.frontName || combined[matchIndex].frontName
+        };
+        updated = true;
+      }
+    }
+  }
+
+  return combined;
+}
+
 export function getStoredUsers(): UserAccount[] {
   if (typeof window === 'undefined') return PRESET_ACCOUNTS;
   try {
@@ -175,35 +207,11 @@ export function getStoredUsers(): UserAccount[] {
       return PRESET_ACCOUNTS;
     }
     const parsed: UserAccount[] = JSON.parse(raw);
-    let updated = false;
-    const combined = [...parsed];
-    for (const preset of PRESET_ACCOUNTS) {
-      const matchIndex = combined.findIndex(
-        (u) =>
-          u.username.toLowerCase() === preset.username.toLowerCase() ||
-          u.id === preset.id ||
-          (u.frontName && u.frontName.toLowerCase().includes(preset.username.toLowerCase()))
-      );
-
-      if (matchIndex === -1) {
-        combined.push(preset);
-        updated = true;
-      } else {
-        // Guarantee passwordHash and core credentials match PRESET_ACCOUNTS
-        if (combined[matchIndex].passwordHash !== preset.passwordHash) {
-          combined[matchIndex] = {
-            ...combined[matchIndex],
-            passwordHash: preset.passwordHash,
-            frontName: preset.frontName || combined[matchIndex].frontName
-          };
-          updated = true;
-        }
-      }
+    const merged = mergePresetAccounts(parsed);
+    if (merged.length !== parsed.length) {
+      localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(merged));
     }
-    if (updated) {
-      localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(combined));
-    }
-    return combined;
+    return merged;
   } catch {
     return PRESET_ACCOUNTS;
   }
@@ -213,6 +221,12 @@ export function saveUsers(users: UserAccount[]): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(users));
+    // Background sync to server
+    fetch('/api/users/save-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ users })
+    }).catch(() => {});
   } catch (err) {
     console.error('Failed saving users to localStorage', err);
   }
@@ -245,6 +259,13 @@ export function updateUserAccount(updated: UserAccount): void {
     users.push(updated);
   }
   saveUsers(users);
+
+  // Direct server push
+  fetch('/api/users/update', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updated)
+  }).catch(() => {});
 }
 
 // Marketplace storage
@@ -252,11 +273,7 @@ export function getMarketItems(): MarketItem[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_MARKET_KEY);
-    if (!raw) {
-      const initial: MarketItem[] = [];
-      localStorage.setItem(STORAGE_MARKET_KEY, JSON.stringify(initial));
-      return initial;
-    }
+    if (!raw) return [];
     return JSON.parse(raw);
   } catch {
     return [];
@@ -266,6 +283,11 @@ export function getMarketItems(): MarketItem[] {
 export function saveMarketItems(items: MarketItem[]): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(STORAGE_MARKET_KEY, JSON.stringify(items));
+  fetch('/api/market/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items })
+  }).catch(() => {});
 }
 
 // Live Auctions Storage
@@ -273,11 +295,7 @@ export function getAuctions(): AuctionItem[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_AUCTION_KEY);
-    if (!raw) {
-      const initialAuctions: AuctionItem[] = [];
-      localStorage.setItem(STORAGE_AUCTION_KEY, JSON.stringify(initialAuctions));
-      return initialAuctions;
-    }
+    if (!raw) return [];
     return JSON.parse(raw);
   } catch {
     return [];
@@ -287,6 +305,11 @@ export function getAuctions(): AuctionItem[] {
 export function saveAuctions(auctions: AuctionItem[]): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(STORAGE_AUCTION_KEY, JSON.stringify(auctions));
+  fetch('/api/auctions/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ auctions })
+  }).catch(() => {});
 }
 
 // Live Chat Storage
@@ -300,7 +323,7 @@ export function getChatMessages(): ChatMessage[] {
           id: 'chat-welcome',
           senderUsername: 'Aydin',
           senderFrontName: 'Master Admin Aydin',
-          text: 'Welcome to Icons Paper FC! Squad chat is live. ⚽',
+          text: 'Welcome to Icons Paper FC! Squad chat is live across all devices. ⚽',
           timestamp: Date.now(),
           isAdmin: true
         }
@@ -317,4 +340,59 @@ export function getChatMessages(): ChatMessage[] {
 export function saveChatMessages(messages: ChatMessage[]): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(STORAGE_CHAT_KEY, JSON.stringify(messages));
+  fetch('/api/chat/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages })
+  }).catch(() => {});
+}
+
+// --- SERVER REAL-TIME SYNC ---
+export async function syncWithServer(): Promise<{
+  users?: UserAccount[];
+  market?: MarketItem[];
+  auctions?: AuctionItem[];
+  chat?: ChatMessage[];
+}> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const localUsers = getStoredUsers();
+    const localMarket = getMarketItems();
+    const localAuctions = getAuctions();
+    const localChat = getChatMessages();
+
+    // Send local state to merge with server database
+    const res = await fetch('/api/db/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        users: localUsers,
+        market: localMarket,
+        auctions: localAuctions,
+        chat: localChat
+      })
+    });
+
+    if (!res.ok) return {};
+    const serverDb = await res.json();
+
+    if (Array.isArray(serverDb.users) && serverDb.users.length > 0) {
+      const merged = mergePresetAccounts(serverDb.users);
+      localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(merged));
+    }
+    if (Array.isArray(serverDb.market)) {
+      localStorage.setItem(STORAGE_MARKET_KEY, JSON.stringify(serverDb.market));
+    }
+    if (Array.isArray(serverDb.auctions)) {
+      localStorage.setItem(STORAGE_AUCTION_KEY, JSON.stringify(serverDb.auctions));
+    }
+    if (Array.isArray(serverDb.chat)) {
+      localStorage.setItem(STORAGE_CHAT_KEY, JSON.stringify(serverDb.chat));
+    }
+
+    return serverDb;
+  } catch (err) {
+    console.warn('Server sync offline or unreachable:', err);
+    return {};
+  }
 }

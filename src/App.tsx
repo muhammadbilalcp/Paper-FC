@@ -15,7 +15,7 @@ import { AydinAdminPanel } from './components/AydinAdminPanel';
 import { AuthModal } from './components/AuthModal';
 import { HomeUpdatesFeed } from './components/HomeUpdatesFeed';
 import { soundFx } from './utils/audio';
-import { getStoredUsers, saveUsers } from './utils/storage';
+import { getStoredUsers, saveUsers, syncWithServer } from './utils/storage';
 
 export default function App() {
   const [users, setUsers] = useState<UserAccount[]>(() => {
@@ -23,6 +23,29 @@ export default function App() {
   });
 
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+
+  // Periodic multi-device server sync
+  useEffect(() => {
+    const doSync = async () => {
+      const serverData = await syncWithServer();
+      if (serverData.users && Array.isArray(serverData.users)) {
+        setUsers(serverData.users);
+        if (currentUser) {
+          const freshMe = serverData.users.find((u: UserAccount) => u.id === currentUser.id);
+          if (freshMe) {
+            setCurrentUser(freshMe);
+          }
+        }
+      }
+    };
+
+    // Initial sync
+    doSync();
+
+    // Poll every 2.5 seconds for real-time multi-device sync
+    const interval = setInterval(doSync, 2500);
+    return () => clearInterval(interval);
+  }, [currentUser?.id]);
 
   const [homeUpdates, setHomeUpdates] = useState<HomeScreenUpdate[]>(() => {
     try {
