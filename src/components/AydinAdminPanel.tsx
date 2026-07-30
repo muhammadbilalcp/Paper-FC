@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserAccount, PlayerCard, HomeScreenUpdate } from '../types';
 import { INITIAL_PLAYER_DATABASE } from '../data/playersDatabase';
 import { soundFx } from '../utils/audio';
@@ -29,6 +29,54 @@ export const AydinAdminPanel: React.FC<AydinAdminPanelProps> = ({
   const [cashAmount, setCashAmount] = useState<number>(1000000);
   const [coinsAmount, setCoinsAmount] = useState<number>(5000000);
   const [selectedCardId, setSelectedCardId] = useState<string>(INITIAL_PLAYER_DATABASE[0].id);
+
+  // Quick Add Friend Account State
+  const [newFriendUsername, setNewFriendUsername] = useState('');
+  const [newFriendPassword, setNewFriendPassword] = useState('');
+  const [isAddingFriend, setIsAddingFriend] = useState(false);
+
+  // Auto Refresh Users when opening Conductor Panel
+  useEffect(() => {
+    if (onRefreshUsers) {
+      onRefreshUsers();
+    }
+  }, []);
+
+  const handleAddFriendAccount = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = newFriendUsername.trim();
+    if (!trimmed || !newFriendPassword) return;
+
+    const exists = allUsers.some((u) => u.username.toLowerCase() === trimmed.toLowerCase());
+    if (exists) {
+      alert(`User "${trimmed}" already exists in the registered database!`);
+      return;
+    }
+
+    const newUser: UserAccount = {
+      id: `usr-${Date.now()}`,
+      username: trimmed,
+      passwordHash: newFriendPassword,
+      isAdmin: trimmed.toLowerCase() === 'aydin',
+      coins: 15000,
+      points: 15000,
+      inventory: [],
+      squad: {
+        formation: '4-3-3',
+        starting11: {},
+        bench: []
+      },
+      packsOpened: 0,
+      createdAt: Date.now()
+    };
+
+    soundFx.playCoinSound();
+    onUpdateUser(newUser);
+    setNewFriendUsername('');
+    setNewFriendPassword('');
+    setIsAddingFriend(false);
+    alert(`Successfully registered friend account "${trimmed}" with 15k Coins starter bonus!`);
+  };
 
   const [customName, setCustomName] = useState<string>('Aydin God');
   const [customOvr, setCustomOvr] = useState<number>(99);
@@ -356,12 +404,22 @@ export const AydinAdminPanel: React.FC<AydinAdminPanelProps> = ({
               className="bg-black/80 border border-white/20 rounded-xl px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 font-mono w-36 sm:w-48"
             />
 
+            <button
+              onClick={() => {
+                soundFx.playClick();
+                setIsAddingFriend(!isAddingFriend);
+              }}
+              className="px-3 py-1.5 bg-purple-500 hover:bg-purple-400 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow transition cursor-pointer flex items-center gap-1"
+            >
+              ➕ ADD FRIEND
+            </button>
+
             {onRefreshUsers && (
               <button
                 onClick={() => {
                   soundFx.playClick();
                   onRefreshUsers();
-                  alert('Refreshed all player accounts!');
+                  alert(`Refreshed! Currently ${allUsers.length} player account(s) loaded.`);
                 }}
                 className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs uppercase tracking-wider rounded-xl shadow transition cursor-pointer flex items-center gap-1"
               >
@@ -401,6 +459,54 @@ export const AydinAdminPanel: React.FC<AydinAdminPanelProps> = ({
             </button>
           </div>
         </div>
+
+        {isAddingFriend && (
+          <form onSubmit={handleAddFriendAccount} className="bg-purple-950/40 border-2 border-purple-500/50 p-4 rounded-2xl flex flex-wrap items-end gap-3 animate-in fade-in zoom-in-95">
+            <div className="flex-1 min-w-[140px]">
+              <label className="text-[10px] font-bold text-purple-300 uppercase tracking-widest block mb-1">
+                Friend's Username
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Leo, Cristiano, Marcus"
+                value={newFriendUsername}
+                onChange={(e) => setNewFriendUsername(e.target.value)}
+                className="w-full bg-black/80 border border-purple-400/40 rounded-xl px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-400 font-mono"
+              />
+            </div>
+
+            <div className="flex-1 min-w-[140px]">
+              <label className="text-[10px] font-bold text-purple-300 uppercase tracking-widest block mb-1">
+                Friend's Password
+              </label>
+              <input
+                type="password"
+                required
+                placeholder="Enter password"
+                value={newFriendPassword}
+                onChange={(e) => setNewFriendPassword(e.target.value)}
+                className="w-full bg-black/80 border border-purple-400/40 rounded-xl px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-400 font-mono"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="submit"
+                className="px-4 py-2 bg-purple-500 hover:bg-purple-400 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow cursor-pointer transition"
+              >
+                SAVE REGISTRATION ➔
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAddingFriend(false)}
+                className="px-3 py-2 bg-white/10 hover:bg-white/20 text-gray-300 font-bold text-xs rounded-xl cursor-pointer"
+              >
+                CANCEL
+              </button>
+            </div>
+          </form>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">

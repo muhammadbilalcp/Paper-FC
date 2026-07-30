@@ -70,7 +70,9 @@ export default function App() {
       const saved = localStorage.getItem('icons_paper_fc_users_v2');
       if (saved) {
         const parsed: UserAccount[] = JSON.parse(saved);
-        return parsed.map((u) => {
+        const hasAydin = parsed.some((u) => u.username.toLowerCase() === 'aydin');
+        const list = hasAydin ? parsed : [DEFAULT_AYDIN_ACCOUNT, ...parsed];
+        return list.map((u) => {
           if (!u.isAdmin && u.coins < 15000 && u.packsOpened === 0) {
             return {
               ...u,
@@ -154,7 +156,9 @@ export default function App() {
       const saved = localStorage.getItem('icons_paper_fc_users_v2');
       if (saved) {
         const parsed: UserAccount[] = JSON.parse(saved);
-        setUsers(parsed);
+        const hasAydin = parsed.some((u) => u.username.toLowerCase() === 'aydin');
+        const list = hasAydin ? parsed : [DEFAULT_AYDIN_ACCOUNT, ...parsed];
+        setUsers(list);
       }
     } catch {
       // Fail gracefully
@@ -524,9 +528,10 @@ export default function App() {
         />
       )}
 
-      {isAuthOpen && (
+      {(!currentUser || isAuthOpen) && (
         <AuthModal
           allUsers={users}
+          canClose={!!currentUser}
           onLoginSuccess={(u) => handleUpdateCurrentUser(u)}
           onRegisterSuccess={(nu) => handleUpdateCurrentUser(nu)}
           onClose={() => setIsAuthOpen(false)}
