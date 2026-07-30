@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
+import { INITIAL_PLAYER_DATABASE } from "./src/data/playersDatabase";
 
 const app = express();
 const PORT = 3000;
@@ -19,16 +20,193 @@ interface GlobalDatabase {
   chat: any[];
 }
 
+const DEFAULT_SQUAD = {
+  formation: '4-3-3',
+  starting11: {
+    ST: INITIAL_PLAYER_DATABASE.find((p) => p.name.includes('Pelé')) || INITIAL_PLAYER_DATABASE[1],
+    LW: INITIAL_PLAYER_DATABASE.find((p) => p.name.includes('Ronaldinho')) || INITIAL_PLAYER_DATABASE[3],
+    RW: INITIAL_PLAYER_DATABASE.find((p) => p.name.includes('Messi')) || INITIAL_PLAYER_DATABASE[9],
+    CAM: INITIAL_PLAYER_DATABASE.find((p) => p.name.includes('Zidane')) || INITIAL_PLAYER_DATABASE[4],
+    CM: INITIAL_PLAYER_DATABASE.find((p) => p.name.includes('Bruyne')) || INITIAL_PLAYER_DATABASE[16],
+    CDM: INITIAL_PLAYER_DATABASE.find((p) => p.name.includes('Rodri')) || INITIAL_PLAYER_DATABASE[17],
+    CB1: INITIAL_PLAYER_DATABASE.find((p) => p.name.includes('Maldini')) || INITIAL_PLAYER_DATABASE[7],
+    CB2: INITIAL_PLAYER_DATABASE.find((p) => p.name.includes('Dijk')) || INITIAL_PLAYER_DATABASE[18],
+    LB: INITIAL_PLAYER_DATABASE.find((p) => p.name.includes('Davies')) || INITIAL_PLAYER_DATABASE[23],
+    RB: INITIAL_PLAYER_DATABASE.find((p) => p.name.includes('Hakimi')) || INITIAL_PLAYER_DATABASE[24],
+    GK: INITIAL_PLAYER_DATABASE.find((p) => p.name.includes('Yashin')) || INITIAL_PLAYER_DATABASE[8]
+  },
+  bench: [
+    INITIAL_PLAYER_DATABASE[0],
+    INITIAL_PLAYER_DATABASE[2],
+    INITIAL_PLAYER_DATABASE[10],
+    INITIAL_PLAYER_DATABASE[11]
+  ]
+};
+
+const DEFAULT_EMPTY_SQUAD = {
+  formation: '4-3-3',
+  starting11: {},
+  bench: []
+};
+
+const SEED_USERS = [
+  {
+    id: 'usr-aydin-admin',
+    username: 'Aydin',
+    frontName: 'Master Admin Aydin',
+    passwordHash: 'aydin123',
+    isAdmin: true,
+    coins: 999999999,
+    points: 9999999,
+    inventory: [...INITIAL_PLAYER_DATABASE],
+    squad: DEFAULT_SQUAD,
+    packsOpened: 250,
+    createdAt: Date.now() - 10000000,
+    totalSalaryReceived: 100000000
+  },
+  {
+    id: 'usr-faheem',
+    username: 'FAHCR7',
+    frontName: 'Faheem CR7',
+    passwordHash: 'faheemhananandfarhan67',
+    isAdmin: false,
+    coins: 0,
+    points: 150,
+    inventory: [],
+    squad: DEFAULT_EMPTY_SQUAD,
+    packsOpened: 0,
+    createdAt: Date.now() - 5000000,
+    totalSalaryReceived: 0
+  },
+  {
+    id: 'usr-hamad',
+    username: 'Hamad',
+    frontName: 'Hamad',
+    passwordHash: 'Hamad67.com',
+    isAdmin: false,
+    coins: 0,
+    points: 150,
+    inventory: [],
+    squad: DEFAULT_EMPTY_SQUAD,
+    packsOpened: 0,
+    createdAt: Date.now() - 4000000,
+    totalSalaryReceived: 0
+  },
+  {
+    id: 'usr-rinshan',
+    username: 'Rinshan',
+    frontName: 'Rinshan',
+    passwordHash: 'nonchalantrinchu',
+    isAdmin: false,
+    coins: 0,
+    points: 150,
+    inventory: [],
+    squad: DEFAULT_EMPTY_SQUAD,
+    packsOpened: 0,
+    createdAt: Date.now() - 3500000,
+    totalSalaryReceived: 0
+  },
+  {
+    id: 'usr-razan',
+    username: 'Brazan67',
+    frontName: 'Razan',
+    passwordHash: 'Brazan67',
+    isAdmin: false,
+    coins: 0,
+    points: 150,
+    inventory: [],
+    squad: DEFAULT_EMPTY_SQUAD,
+    packsOpened: 0,
+    createdAt: Date.now() - 3000000,
+    totalSalaryReceived: 0
+  },
+  {
+    id: 'usr-insaf',
+    username: 'Isagi Insaf',
+    frontName: 'Insaf',
+    passwordHash: 'yoichi isagi',
+    isAdmin: false,
+    coins: 0,
+    points: 150,
+    inventory: [],
+    squad: DEFAULT_EMPTY_SQUAD,
+    packsOpened: 0,
+    createdAt: Date.now() - 2800000,
+    totalSalaryReceived: 0
+  },
+  {
+    id: 'usr-aban',
+    username: 'Aban',
+    frontName: 'Aban',
+    passwordHash: 'Abanthegk',
+    isAdmin: false,
+    coins: 0,
+    points: 150,
+    inventory: [],
+    squad: DEFAULT_EMPTY_SQUAD,
+    packsOpened: 0,
+    createdAt: Date.now() - 2500000,
+    totalSalaryReceived: 0
+  },
+  {
+    id: 'usr-hashid',
+    username: 'Acid',
+    frontName: 'Hashid',
+    passwordHash: 'AcidBase76',
+    isAdmin: false,
+    coins: 0,
+    points: 150,
+    inventory: [],
+    squad: DEFAULT_EMPTY_SQUAD,
+    packsOpened: 0,
+    createdAt: Date.now() - 2000000,
+    totalSalaryReceived: 0
+  },
+  {
+    id: 'usr-spybilal-secret',
+    username: 'SpyBilal',
+    frontName: 'Agent SpyBilal',
+    passwordHash: '223879',
+    isAdmin: true,
+    coins: 999999999,
+    points: 9999999,
+    inventory: [...INITIAL_PLAYER_DATABASE],
+    squad: DEFAULT_SQUAD,
+    packsOpened: 500,
+    createdAt: Date.now() - 1000000,
+    totalSalaryReceived: 99999999
+  }
+];
+
 function loadDatabase(): GlobalDatabase {
   try {
     if (fs.existsSync(DB_FILE)) {
       const raw = fs.readFileSync(DB_FILE, "utf-8");
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.users) && parsed.users.length > 0) {
+        return parsed;
+      }
     }
   } catch (err) {
     console.error("Error reading database file:", err);
   }
-  return { users: [], market: [], auctions: [], chat: [] };
+  const initial: GlobalDatabase = {
+    users: SEED_USERS,
+    market: [],
+    auctions: [],
+    chat: [
+      {
+        id: 'chat-welcome',
+        senderUsername: 'Aydin',
+        senderFrontName: 'Master Admin Aydin',
+        text: 'Welcome to Icons Paper FC! Squad chat is live across all devices. ⚽',
+        timestamp: Date.now(),
+        isAdmin: true
+      }
+    ]
+  };
+  saveDatabase(initial);
+  return initial;
 }
 
 function saveDatabase(db: GlobalDatabase) {
@@ -47,43 +225,26 @@ let dbState: GlobalDatabase = loadDatabase();
 
 // --- API ROUTES ---
 
-// Get full shared database state
+// Get full master database state
 app.get("/api/db", (req, res) => {
   res.json(dbState);
 });
 
-// Full sync endpoint (merges and saves)
-app.post("/api/db/sync", (req, res) => {
-  const { users, market, auctions, chat } = req.body || {};
-
-  if (Array.isArray(users) && users.length > 0) {
-    // Merge users matching by ID
-    const mergedUsers = [...dbState.users];
-    for (const u of users) {
-      const idx = mergedUsers.findIndex((existing) => existing.id === u.id);
-      if (idx !== -1) {
-        mergedUsers[idx] = { ...mergedUsers[idx], ...u };
-      } else {
-        mergedUsers.push(u);
-      }
+// Update single user account
+app.post("/api/users/update", (req, res) => {
+  const user = req.body;
+  if (user && (user.id || user.username)) {
+    const idx = dbState.users.findIndex(
+      (u) => u.id === user.id || u.username.toLowerCase() === user.username.toLowerCase()
+    );
+    if (idx !== -1) {
+      dbState.users[idx] = { ...dbState.users[idx], ...user };
+    } else {
+      dbState.users.push(user);
     }
-    dbState.users = mergedUsers;
+    saveDatabase(dbState);
   }
-
-  if (Array.isArray(market)) {
-    dbState.market = market;
-  }
-
-  if (Array.isArray(auctions)) {
-    dbState.auctions = auctions;
-  }
-
-  if (Array.isArray(chat)) {
-    dbState.chat = chat;
-  }
-
-  saveDatabase(dbState);
-  res.json(dbState);
+  res.json({ status: "ok", user, allUsers: dbState.users });
 });
 
 // Bulk update users endpoint
@@ -94,21 +255,6 @@ app.post("/api/users/save-all", (req, res) => {
     saveDatabase(dbState);
   }
   res.json({ status: "ok", users: dbState.users });
-});
-
-// Update single user account
-app.post("/api/users/update", (req, res) => {
-  const user = req.body;
-  if (user && user.id) {
-    const idx = dbState.users.findIndex((u) => u.id === user.id);
-    if (idx !== -1) {
-      dbState.users[idx] = { ...dbState.users[idx], ...user };
-    } else {
-      dbState.users.push(user);
-    }
-    saveDatabase(dbState);
-  }
-  res.json({ status: "ok", user, allUsers: dbState.users });
 });
 
 // Save market items
@@ -136,7 +282,6 @@ app.post("/api/chat/send", (req, res) => {
   const { message } = req.body;
   if (message && message.id) {
     dbState.chat.push(message);
-    // Keep max 200 messages
     if (dbState.chat.length > 200) {
       dbState.chat = dbState.chat.slice(-200);
     }

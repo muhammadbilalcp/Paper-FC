@@ -26,6 +26,10 @@ export const BiddingMarket: React.FC<BiddingMarketProps> = ({
 
   useEffect(() => {
     setAuctions(getAuctions());
+    const interval = setInterval(() => {
+      setAuctions(getAuctions());
+    }, 1500);
+    return () => clearInterval(interval);
   }, []);
 
   const handleCreateAuction = (e: React.FormEvent) => {

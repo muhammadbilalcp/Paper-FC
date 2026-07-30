@@ -16,6 +16,10 @@ export const CommunityChat: React.FC<CommunityChatProps> = ({ currentUser }) => 
 
   useEffect(() => {
     setMessages(getChatMessages());
+    const interval = setInterval(() => {
+      setMessages(getChatMessages());
+    }, 1500);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {

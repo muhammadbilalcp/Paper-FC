@@ -15,7 +15,7 @@ import { AydinAdminPanel } from './components/AydinAdminPanel';
 import { AuthModal } from './components/AuthModal';
 import { HomeUpdatesFeed } from './components/HomeUpdatesFeed';
 import { soundFx } from './utils/audio';
-import { getStoredUsers, saveUsers, syncWithServer } from './utils/storage';
+import { getStoredUsers, saveUsers, updateUserAccount, getMarketItems, saveMarketItems, syncWithServer, setCurrentUserSession } from './utils/storage';
 
 export default function App() {
   const [users, setUsers] = useState<UserAccount[]>(() => {
@@ -23,6 +23,8 @@ export default function App() {
   });
 
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+
+  const [marketListings, setMarketListings] = useState<MarketItem[]>(() => getMarketItems());
 
   // Periodic multi-device server sync
   useEffect(() => {
@@ -37,13 +39,16 @@ export default function App() {
           }
         }
       }
+      if (serverData.market && Array.isArray(serverData.market)) {
+        setMarketListings(serverData.market);
+      }
     };
 
     // Initial sync
     doSync();
 
-    // Poll every 2.5 seconds for real-time multi-device sync
-    const interval = setInterval(doSync, 2500);
+    // Poll every 2 seconds for real-time multi-device sync
+    const interval = setInterval(doSync, 2000);
     return () => clearInterval(interval);
   }, [currentUser?.id]);
 
@@ -67,47 +72,7 @@ export default function App() {
     pulledCards: PlayerCard[];
   } | null>(null);
 
-  const [marketListings, setMarketListings] = useState<MarketItem[]>(() => [
-    {
-      id: 'mkt-1',
-      sellerUsername: 'Aydin',
-      card: INITIAL_PLAYER_DATABASE[6], // R9
-      priceCoins: 4500000,
-      listedAt: Date.now() - 100000
-    },
-    {
-      id: 'mkt-2',
-      sellerUsername: 'Hamad',
-      card: INITIAL_PLAYER_DATABASE[11], // Mbappe
-      priceCoins: 3700000,
-      listedAt: Date.now() - 50000
-    },
-    {
-      id: 'mkt-3',
-      sellerUsername: 'Aydin',
-      card: INITIAL_PLAYER_DATABASE[14], // Van Dijk
-      priceCoins: 450000,
-      listedAt: Date.now() - 20000
-    }
-  ]);
-
   const [inventorySearch, setInventorySearch] = useState('');
-
-  // Auto Sync across tabs & windows
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.newValue) {
-        try {
-          const freshUsers = getStoredUsers();
-          setUsers(freshUsers);
-        } catch {
-          // Fail gracefully
-        }
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
 
   const handleReloadUsers = () => {
     const fresh = getStoredUsers();
@@ -116,15 +81,14 @@ export default function App() {
 
   useEffect(() => {
     try {
-      saveUsers(users);
       if (currentUser) {
-        localStorage.setItem('icons_paper_fc_current_user_v3', currentUser.id);
+        setCurrentUserSession(currentUser);
       }
       localStorage.setItem('icons_paper_fc_updates_v1', JSON.stringify(homeUpdates));
     } catch {
       // Fail gracefully
     }
-  }, [users, currentUser, homeUpdates]);
+  }, [currentUser, homeUpdates]);
 
   const handleAddHomeUpdate = (newUpdate: HomeScreenUpdate) => {
     setHomeUpdates((prev) => [newUpdate, ...prev]);
@@ -138,12 +102,13 @@ export default function App() {
     setCurrentUser(updatedUser);
     setUsers((prevUsers) => {
       const exists = prevUsers.some((u) => u.id === updatedUser.id);
-      if (exists) {
-        return prevUsers.map((u) => (u.id === updatedUser.id ? updatedUser : u));
-      } else {
-        return [...prevUsers, updatedUser];
-      }
+      const nextUsers = exists
+        ? prevUsers.map((u) => (u.id === updatedUser.id ? updatedUser : u))
+        : [...prevUsers, updatedUser];
+      saveUsers(nextUsers);
+      return nextUsers;
     });
+    updateUserAccount(updatedUser);
   };
 
   const handleOpenPack = (pack: typeof PACKS_LIST[0], currency: 'COINS' | 'POINTS') => {
@@ -222,16 +187,20 @@ export default function App() {
 
     handleUpdateCurrentUser(updatedUser);
 
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.username === item.sellerUsername) {
-          return { ...u, coins: u.coins + item.priceCoins };
-        }
-        return u;
-      })
-    );
+    const updatedUsers = users.map((u) => {
+      if (u.username === item.sellerUsername) {
+        const credited = { ...u, coins: u.coins + item.priceCoins };
+        updateUserAccount(credited);
+        return credited;
+      }
+      return u;
+    });
+    setUsers(updatedUsers);
+    saveUsers(updatedUsers);
 
-    setMarketListings((prev) => prev.filter((m) => m.id !== item.id));
+    const updatedMarket = marketListings.filter((m) => m.id !== item.id);
+    setMarketListings(updatedMarket);
+    saveMarketItems(updatedMarket);
   };
 
   const handleListMarketItem = (card: PlayerCard, priceCoins: number) => {
@@ -251,7 +220,9 @@ export default function App() {
       listedAt: Date.now()
     };
 
-    setMarketListings((prev) => [newMarketItem, ...prev]);
+    const updatedMarket = [newMarketItem, ...marketListings];
+    setMarketListings(updatedMarket);
+    saveMarketItems(updatedMarket);
   };
 
   const handleQuickSellCard = (card: PlayerCard) => {
@@ -468,16 +439,20 @@ export default function App() {
             onUpdateUser={(updated) => {
               setUsers((prev) => {
                 const exists = prev.some((u) => u.id === updated.id);
-                return exists
+                const next = exists
                   ? prev.map((u) => (u.id === updated.id ? updated : u))
                   : [...prev, updated];
+                saveUsers(next);
+                return next;
               });
+              updateUserAccount(updated);
               if (currentUser && updated.id === currentUser.id) {
                 setCurrentUser(updated);
               }
             }}
             onUpdateAllUsers={(updatedUsers) => {
               setUsers(updatedUsers);
+              saveUsers(updatedUsers);
               if (currentUser) {
                 const found = updatedUsers.find((u) => u.id === currentUser.id);
                 if (found) setCurrentUser(found);
