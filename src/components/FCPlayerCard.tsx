@@ -40,12 +40,22 @@ export const FCPlayerCard: React.FC<FCPlayerCardProps> = ({
   }[size];
 
   // Determine Tier: BRONZE (<75 OVR), GOLD ANONYMOUS (75-87 OVR), DIAMOND (88+ OVR or Special)
+  const isZeral = card.rarity === 'ZERAL_FC';
   const isBronze = card.rating < 75 || card.rarity.includes('BRONZE');
-  const isDiamond = card.rating >= 88 || card.rarity === 'PRIME_ICON' || card.rarity === 'TOTY' || card.rarity === 'AYDIN_CUSTOM' || card.rarity === 'PAPER_LEGEND';
-  const isGoldAnonymous = !isBronze && !isDiamond; // 75 - 87 OVR Gold Rare/Common
+  const isDiamond = (card.rating >= 88 || card.rarity === 'PRIME_ICON' || card.rarity === 'TOTY' || card.rarity === 'AYDIN_CUSTOM' || card.rarity === 'PAPER_LEGEND') && !isZeral;
+  const isGoldAnonymous = !isBronze && !isDiamond && !isZeral; // 75 - 87 OVR Gold Rare/Common
 
   const getCardTheme = () => {
-    if (isDiamond) {
+    if (isZeral) {
+      return {
+        cardBg: 'bg-gradient-to-b from-emerald-950 via-teal-800 to-cyan-950',
+        border: 'border-2 border-emerald-300 shadow-[0_0_25px_rgba(52,211,153,0.8)] animate-pulse',
+        badgeBg: 'bg-emerald-400 text-black font-black shadow-[0_0_10px_rgba(52,211,153,0.9)]',
+        textColor: 'text-emerald-200',
+        glare: 'from-emerald-300/40 via-teal-200/20 to-transparent',
+        badgeText: '⚡ ZERAL FC'
+      };
+    } else if (isDiamond) {
       // DIAMOND CRYSTAL TIER (88+ OVR or Special Superstars)
       return {
         cardBg: 'bg-gradient-to-b from-cyan-950 via-sky-800 to-indigo-950',
@@ -114,7 +124,28 @@ export const FCPlayerCard: React.FC<FCPlayerCardProps> = ({
 
       {/* Center Image Container - Vector Emblem Silhouettes (No stock photos) */}
       <div className="relative z-0 flex-1 flex items-center justify-center -mt-3 mb-1 overflow-hidden px-2">
-        {isDiamond ? (
+        {isZeral ? (
+          /* ZERAL FC VECTOR EMBLEM SILHOUETTE */
+          <div className="relative w-full h-full max-h-[170px] flex flex-col items-center justify-center bg-gradient-to-b from-emerald-950/90 via-teal-800/40 to-cyan-950/90 rounded-xl overflow-hidden border border-emerald-300/80 shadow-[inset_0_0_20px_rgba(52,211,153,0.5)]">
+            <svg className="w-24 h-24 drop-shadow-[0_0_16px_rgba(52,211,153,0.9)]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <polygon points="50,10 90,30 90,70 50,90 10,70 10,30" fill="url(#zeralGradF)" stroke="#34D399" strokeWidth="2" />
+              <path d="M50 22 C42 22 35 29 35 37 C35 45 42 52 50 52 C58 52 65 45 65 37 C65 29 58 22 50 22 Z" fill="#022c22" opacity="0.9" />
+              <path d="M25 78 C25 63 36 55 50 55 C64 55 75 63 75 78 Z" fill="#022c22" opacity="0.9" />
+              <path d="M45 28 L55 28 L42 48 L58 48 L38 72 L44 54 L32 54 Z" fill="#34D399" />
+              <defs>
+                <linearGradient id="zeralGradF" x1="0" y1="0" x2="100" y2="100">
+                  <stop stopColor="#34D399" />
+                  <stop offset="0.5" stopColor="#0D9488" />
+                  <stop offset="1" stopColor="#064E3B" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <div className="absolute bottom-1 px-2 py-0.5 bg-emerald-950/90 border border-emerald-300 rounded text-[8px] font-black text-emerald-200 tracking-wider uppercase flex items-center gap-1 shadow-md">
+              <span>⚡</span>
+              <span>ZERAL FC SPECIAL</span>
+            </div>
+          </div>
+        ) : isDiamond ? (
           /* DIAMOND SUPERSTAR VECTOR EMBLEM SILHOUETTE */
           <div className="relative w-full h-full max-h-[170px] flex flex-col items-center justify-center bg-gradient-to-b from-cyan-950/90 via-sky-800/40 to-indigo-950/90 rounded-xl overflow-hidden border border-cyan-300/80 shadow-[inset_0_0_20px_rgba(34,211,238,0.5)]">
             <svg className="w-24 h-24 drop-shadow-[0_0_16px_rgba(34,211,238,0.9)]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">

@@ -7,7 +7,8 @@ export type CardRarity =
   | 'TOTY'
   | 'PRIME_ICON'
   | 'PAPER_LEGEND'
-  | 'AYDIN_CUSTOM';
+  | 'AYDIN_CUSTOM'
+  | 'ZERAL_FC';
 
 export type Position =
   | 'GK'

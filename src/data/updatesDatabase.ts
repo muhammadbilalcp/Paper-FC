@@ -2,6 +2,19 @@ import { HomeScreenUpdate } from '../types';
 
 export const INITIAL_HOME_UPDATES: HomeScreenUpdate[] = [
   {
+    id: 'upd-zeral-fc-drop',
+    title: 'ZERAL FC PACK DROP HAS ARRIVED!',
+    category: 'Zeral FC Event',
+    badge: 'NEW PACK ⚡',
+    description: 'The official Zeral FC Pack is now live! Pull top rating Hamad (98 OVR), Aban (96 OVR), Rinshan (94 OVR), Razan (92 OVR), and Aydin (89 OVR)!',
+    bannerGradient: 'from-emerald-950 via-teal-900 to-cyan-950',
+    iconEmoji: '⚡',
+    createdAt: Date.now(),
+    author: 'Game Conductor',
+    featuredCardName: 'Hamad 98',
+    isHot: true
+  },
+  {
     id: 'upd-world-cup-2026',
     title: 'WORLD CUP ICONS EXTRAVAGANZA',
     category: 'World Cup Update',

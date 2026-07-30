@@ -218,9 +218,18 @@ export default function App() {
 
     handleUpdateCurrentUser(updatedUser);
 
-    const eligibleCards = INITIAL_PLAYER_DATABASE.filter(
+    let eligibleCards = INITIAL_PLAYER_DATABASE.filter(
       (c) => c.rating >= pack.minOvr && c.rating <= pack.maxOvr
     );
+
+    if (pack.guaranteedRarity) {
+      const rarityMatches = INITIAL_PLAYER_DATABASE.filter(
+        (c) => c.rarity === pack.guaranteedRarity
+      );
+      if (rarityMatches.length > 0) {
+        eligibleCards = rarityMatches;
+      }
+    }
 
     const pool = eligibleCards.length > 0 ? eligibleCards : INITIAL_PLAYER_DATABASE;
     const pulled: PlayerCard[] = [];

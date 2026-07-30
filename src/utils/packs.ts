@@ -60,6 +60,21 @@ export const PACKS_LIST: Pack[] = [
     guaranteedRarity: 'PRIME_ICON'
   },
   {
+    id: 'pack-zeral-fc',
+    name: 'Zeral FC Pack',
+    description: 'Special Zeral FC Squad! Unpack Hamad (98), Aban (96), Rinshan (94), Razan (92) & Aydin (89)!',
+    costCoins: 350000,
+    costPoints: 1200,
+    image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=400',
+    minOvr: 89,
+    maxOvr: 98,
+    badge: 'ZERAL FC',
+    color: 'from-emerald-600 via-teal-500 to-cyan-800',
+    cardCount: 3,
+    walkoutOdds: '100%',
+    guaranteedRarity: 'ZERAL_FC'
+  },
+  {
     id: 'pack-aydin-ultimate',
     name: 'Aydin Ultimate Crown Pack',
     description: 'Supreme God-Tier pack! Guaranteed Walkout Icons + Ultra Rare 99 Aydin Card!',
