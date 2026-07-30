@@ -5,7 +5,7 @@ import { soundFx } from '../utils/audio';
 interface AuthModalProps {
   allUsers: UserAccount[];
   onLoginSuccess: (user: UserAccount) => void;
-  onRegisterSuccess: (newUser: UserAccount) => void;
+  onRegisterSuccess?: (newUser: UserAccount) => void;
   onClose: () => void;
   canClose?: boolean;
 }
@@ -13,29 +13,61 @@ interface AuthModalProps {
 export const AuthModal: React.FC<AuthModalProps> = ({
   allUsers,
   onLoginSuccess,
-  onRegisterSuccess,
   onClose,
   canClose = true
 }) => {
-  const [mode, setMode] = useState<'LOGIN' | 'REGISTER'>('REGISTER');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Preset squad with exact usernames
+  const AUTHORIZED_SQUAD = [
+    { name: 'Faheem', username: 'FAHCR7', badge: '⚡ CR7' },
+    { name: 'Hamad', username: 'Hamad', badge: '🔥 98 ST' },
+    { name: 'Rinshan', username: 'Rinshan', badge: '💫 RW' },
+    { name: 'Razan', username: 'Razan', badge: '🛡️ CM' },
+    { name: 'Insaf', username: 'Isagi Insaf', badge: '🎯 Yoichi' },
+    { name: 'Aban', username: 'Aban', badge: '🧤 GK' },
+    { name: 'Hashid', username: 'Acid', badge: '🧪 Acid' },
+    { name: 'Aydin', username: 'Aydin', badge: '👑 Master Admin' }
+  ];
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
-    const trimmedUser = username.trim();
-    const user = allUsers.find((u) => u.username.toLowerCase() === trimmedUser.toLowerCase());
+    const trimmedUser = username.trim().toLowerCase();
+    const trimmedPass = password.trim();
+
+    // Find account by username, frontName, or alias mapping
+    const user = allUsers.find((u) => {
+      const uName = u.username.toLowerCase();
+      const fName = (u.frontName || '').toLowerCase();
+
+      if (uName === trimmedUser) return true;
+      if (fName === trimmedUser || fName.includes(trimmedUser)) return true;
+
+      // Aliases
+      if ((trimmedUser === 'faheem' || trimmedUser === 'fahcr7') && (uName === 'fahcr7' || fName.includes('faheem'))) return true;
+      if ((trimmedUser === 'hamad') && (uName === 'hamad' || fName.includes('hamad'))) return true;
+      if ((trimmedUser === 'rinshan') && (uName === 'rinshan' || fName.includes('rinshan'))) return true;
+      if ((trimmedUser === 'razan' || trimmedUser === 'brazan67') && (uName === 'brazan67' || uName === 'razan' || fName.includes('razan'))) return true;
+      if ((trimmedUser === 'insaf' || trimmedUser === 'isagi insaf') && (uName === 'isagi insaf' || fName.includes('insaf'))) return true;
+      if ((trimmedUser === 'aban') && (uName === 'aban' || fName.includes('aban'))) return true;
+      if ((trimmedUser === 'hashid' || trimmedUser === 'acid') && (uName === 'acid' || fName.includes('hashid'))) return true;
+      if ((trimmedUser === 'aydin') && (uName === 'aydin' || fName.includes('aydin'))) return true;
+
+      return false;
+    });
 
     if (!user) {
-      setErrorMsg('Account not found! Please check your username or create a new account.');
+      setErrorMsg('Unauthorized account name! Please select your player username below.');
       return;
     }
 
-    if (user.passwordHash !== password) {
-      setErrorMsg('Incorrect password! Please try again.');
+    // Check password (case-sensitive or exact match or trimmed)
+    if (user.passwordHash !== password && user.passwordHash !== trimmedPass) {
+      setErrorMsg(`Incorrect password for @${user.username}! Please enter your correct account password.`);
       return;
     }
 
@@ -44,49 +76,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     onClose();
   };
 
-  const handleRegister = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSelectSquadMember = (squadUsername: string) => {
+    setUsername(squadUsername);
+    setPassword(''); // ONLY autofill username, keep password empty for privacy!
     setErrorMsg('');
-
-    const trimmedUser = username.trim();
-    if (!trimmedUser || !password) {
-      setErrorMsg('Username and password are required!');
-      return;
-    }
-
-    const existing = allUsers.find((u) => u.username.toLowerCase() === trimmedUser.toLowerCase());
-    if (existing) {
-      setErrorMsg('Username is already taken! Please choose a different name or log in.');
-      return;
-    }
-
-    const isAdmin = trimmedUser.toLowerCase() === 'aydin';
-
-    const newUser: UserAccount = {
-      id: `usr-${Date.now()}`,
-      username: trimmedUser,
-      passwordHash: password,
-      isAdmin,
-      coins: isAdmin ? 999999999 : 15000,
-      points: isAdmin ? 999999999 : 15000,
-      inventory: [],
-      squad: {
-        formation: '4-3-3',
-        starting11: {},
-        bench: []
-      },
-      packsOpened: 0,
-      createdAt: Date.now()
-    };
-
-    soundFx.playCoinSound();
-    onRegisterSuccess(newUser);
-    onClose();
   };
 
   return (
-    <div id="auth-modal-overlay" className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl overflow-y-auto p-4 sm:p-6 flex items-start sm:items-center justify-center min-h-full">
-      <div className="bg-neutral-950 border-2 border-emerald-500/50 rounded-3xl p-5 sm:p-8 max-w-md w-full shadow-[0_0_50px_rgba(34,197,94,0.3)] relative my-auto max-h-[92vh] overflow-y-auto">
+    <div id="auth-modal-overlay" className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl overflow-y-auto p-3 sm:p-6 flex items-center justify-center min-h-full">
+      <div className="bg-neutral-950 border-2 border-emerald-500/50 rounded-3xl p-5 sm:p-8 max-w-lg w-full shadow-[0_0_50px_rgba(34,197,94,0.3)] relative my-auto max-h-[95vh] overflow-y-auto">
         {canClose && (
           <button
             onClick={onClose}
@@ -97,46 +95,45 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         )}
 
         {/* Modal Logo & Header */}
-        <div className="flex flex-col items-center gap-2 mb-6 text-center">
+        <div className="flex flex-col items-center gap-2 mb-5 text-center">
           <div className="w-14 h-14 bg-gradient-to-tr from-green-500 via-emerald-600 to-green-400 rounded-2xl flex items-center justify-center border-2 border-white/20 shadow-[0_0_20px_rgba(34,197,94,0.5)] font-black italic text-3xl text-black">
             FC
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            PAPER <span className="text-green-400">FC</span> GATEWAY
+            PAPER <span className="text-green-400">FC</span> SQUAD LOGIN
           </h2>
-          <p className="text-xs text-gray-400">
-            Welcome! Create an account to receive 15,000 Coins & Paper Cash starter bonus to open your first pack!
+          <p className="text-xs text-emerald-400 font-medium bg-emerald-950/80 px-3 py-1 rounded-full border border-emerald-500/40">
+            🔒 Tap your player card to autofill username, then enter your password!
           </p>
         </div>
 
-        {/* Mode Selector Tabs */}
-        <div className="flex bg-black/80 p-1 rounded-2xl border border-white/15 mb-6">
-          <button
-            onClick={() => {
-              setErrorMsg('');
-              setMode('REGISTER');
-            }}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-black transition cursor-pointer uppercase tracking-wider ${
-              mode === 'REGISTER'
-                ? 'bg-gradient-to-r from-green-500 to-emerald-400 text-black shadow-lg'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            CREATE ACCOUNT
-          </button>
-          <button
-            onClick={() => {
-              setErrorMsg('');
-              setMode('LOGIN');
-            }}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-black transition cursor-pointer uppercase tracking-wider ${
-              mode === 'LOGIN'
-                ? 'bg-gradient-to-r from-green-500 to-emerald-400 text-black shadow-lg'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            LOG IN
-          </button>
+        {/* Quick Username Selection Grid */}
+        <div className="mb-5">
+          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2 text-center">
+            TAP PLAYER TO SELECT USERNAME
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {AUTHORIZED_SQUAD.map((member) => (
+              <button
+                key={member.username}
+                type="button"
+                onClick={() => handleSelectSquadMember(member.username)}
+                className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer ${
+                  username.toLowerCase() === member.username.toLowerCase() || (username.toLowerCase() === 'razan' && member.name === 'Razan')
+                    ? 'border-emerald-400 bg-emerald-950/80 shadow-[0_0_15px_rgba(52,211,153,0.5)] scale-105'
+                    : 'border-white/10 bg-black/60 hover:border-white/30 hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-white">{member.name}</span>
+                  <span className="text-[9px] font-bold text-gray-400">{member.badge}</span>
+                </div>
+                <div className="text-[10px] font-mono text-emerald-400/90 truncate mt-1">
+                  @{member.username}
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Error Alert */}
@@ -146,45 +143,45 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         )}
 
-        {/* Form for Normal Register or Login */}
-        <form onSubmit={mode === 'LOGIN' ? handleLogin : handleRegister} className="space-y-4">
+        {/* Login Form */}
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
-              USERNAME
+              USERNAME / PLAYER ID
             </label>
             <input
               type="text"
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder={mode === 'REGISTER' ? 'Choose username (e.g. Aydin or Alex)' : 'Enter your username'}
+              placeholder="e.g. FAHCR7, Hamad, Rinshan, Razan, Isagi Insaf, Aban, Acid, Aydin"
               className="w-full bg-black/80 border border-white/20 rounded-xl px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-green-400"
             />
           </div>
 
           <div>
             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
-              PASSWORD
+              ACCOUNT PASSWORD
             </label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter password"
+              placeholder="Enter your private password"
               className="w-full bg-black/80 border border-white/20 rounded-xl px-4 py-3 text-white font-mono text-sm focus:outline-none focus:border-green-400"
             />
           </div>
 
           <button
             type="submit"
-            className="w-full py-3.5 bg-gradient-to-r from-green-500 to-emerald-400 hover:from-green-400 hover:to-emerald-300 text-black font-black text-sm uppercase tracking-wider rounded-2xl shadow-xl transition cursor-pointer mt-2"
+            className="w-full py-3.5 bg-gradient-to-r from-green-500 to-emerald-400 hover:from-green-400 hover:to-emerald-300 text-black font-black text-sm uppercase tracking-wider rounded-2xl shadow-xl transition cursor-pointer mt-2 flex items-center justify-center gap-2"
           >
-            {mode === 'LOGIN' ? 'LOG IN NOW ➔' : 'CREATE ACCOUNT NOW ➔'}
+            <span>LOG IN TO SQUAD PORTAL</span>
+            <span>➔</span>
           </button>
         </form>
       </div>
     </div>
   );
 };
-

@@ -3,11 +3,14 @@ import { UserAccount } from '../types';
 import { soundFx } from '../utils/audio';
 import { MusicPlayer } from './MusicPlayer';
 
+export type TabType = 'STORE' | 'SQUAD' | 'MARKET' | 'BIDDING' | 'CHAT' | 'INVENTORY' | 'ADMIN';
+
 interface NavbarProps {
   currentUser: UserAccount;
-  activeTab: 'STORE' | 'SQUAD' | 'MARKET' | 'INVENTORY' | 'ADMIN';
-  onChangeTab: (tab: 'STORE' | 'SQUAD' | 'MARKET' | 'INVENTORY' | 'ADMIN') => void;
+  activeTab: TabType;
+  onChangeTab: (tab: TabType) => void;
   onOpenAuth: () => void;
+  onOpenProfile: () => void;
   onLogout: () => void;
 }
 
@@ -16,6 +19,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   onChangeTab,
   onOpenAuth,
+  onOpenProfile,
   onLogout
 }) => {
   const tabsContainerRef = useRef<HTMLDivElement>(null);
@@ -24,7 +28,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const handleScroll = (direction: 'left' | 'right') => {
     soundFx.playClick();
     if (tabsContainerRef.current) {
-      const scrollAmount = direction === 'left' ? -180 : 180;
+      const scrollAmount = direction === 'left' ? -200 : 200;
       tabsContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     }
   };
@@ -38,7 +42,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <nav id="app-navbar" className="border-b border-white/10 bg-black/85 backdrop-blur-xl flex flex-col items-center px-2 sm:px-6 py-2 z-40 shrink-0 select-none gap-2 w-full">
+    <nav id="app-navbar" className="border-b border-white/10 bg-black/90 backdrop-blur-xl flex flex-col items-center px-2 sm:px-6 py-2 z-40 shrink-0 select-none gap-2 w-full">
       {/* Row 1: Brand Logo + Controls (Music, Balances, User Profile & Log Out) */}
       <div className="flex items-center justify-between w-full gap-2 min-w-0">
         {/* Brand Section */}
@@ -90,23 +94,39 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             </div>
 
-            {/* User Account Button */}
-            <div
+            {/* User Profile Button */}
+            <button
+              onClick={() => {
+                soundFx.playClick();
+                onOpenProfile();
+              }}
+              title="View & Customize Profile"
+              className="flex items-center gap-1.5 sm:gap-2 bg-emerald-950/80 hover:bg-emerald-900/80 border border-emerald-500/40 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full transition cursor-pointer shrink-0"
+            >
+              {currentUser.avatarUrl ? (
+                <img src={currentUser.avatarUrl} alt="Avatar" className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover border border-emerald-400" />
+              ) : (
+                <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-tr from-green-500 to-emerald-400 p-0.5 flex items-center justify-center font-black text-black text-[9px]">
+                  {(currentUser.frontName || currentUser.username).substring(0, 2).toUpperCase()}
+                </div>
+              )}
+              <span className="text-xs font-black text-white whitespace-nowrap flex items-center gap-1">
+                {currentUser.frontName || currentUser.username}
+                {currentUser.isAdmin && <span className="text-[10px]">👑</span>}
+              </span>
+            </button>
+
+            {/* Switch Account */}
+            <button
               onClick={() => {
                 soundFx.playClick();
                 onOpenAuth();
               }}
-              title="Switch / View Account"
-              className="flex items-center gap-1.5 sm:gap-2 bg-black/60 hover:bg-white/10 border border-white/15 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full transition cursor-pointer shrink-0"
+              title="Switch Account"
+              className="px-2 py-1 bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 font-bold text-[10px] rounded-xl shrink-0 cursor-pointer"
             >
-              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-tr from-green-500 to-emerald-400 p-0.5 flex items-center justify-center font-black text-black text-[9px]">
-                {currentUser.username.substring(0, 2).toUpperCase()}
-              </div>
-              <span className="text-xs font-black text-white whitespace-nowrap flex items-center gap-1">
-                {currentUser.username}
-                {currentUser.isAdmin && <span className="text-[10px]">👑</span>}
-              </span>
-            </div>
+              SWITCH
+            </button>
 
             {/* Log Out Button */}
             <button
@@ -177,6 +197,34 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             onClick={() => {
               soundFx.playClick();
+              onChangeTab('BIDDING');
+            }}
+            className={`px-3 sm:px-4 py-1.5 rounded-xl font-black text-xs uppercase tracking-wider transition cursor-pointer shrink-0 whitespace-nowrap ${
+              activeTab === 'BIDDING'
+                ? 'bg-cyan-400 text-black shadow-md font-extrabold'
+                : 'text-cyan-300 hover:text-white hover:bg-cyan-950/40'
+            }`}
+          >
+            BIDDING 🔨
+          </button>
+
+          <button
+            onClick={() => {
+              soundFx.playClick();
+              onChangeTab('CHAT');
+            }}
+            className={`px-3 sm:px-4 py-1.5 rounded-xl font-black text-xs uppercase tracking-wider transition cursor-pointer shrink-0 whitespace-nowrap ${
+              activeTab === 'CHAT'
+                ? 'bg-emerald-400 text-black shadow-md font-extrabold'
+                : 'text-emerald-300 hover:text-white hover:bg-emerald-950/40'
+            }`}
+          >
+            CHAT 💬
+          </button>
+
+          <button
+            onClick={() => {
+              soundFx.playClick();
               onChangeTab('MARKET');
             }}
             className={`px-3 sm:px-4 py-1.5 rounded-xl font-black text-xs uppercase tracking-wider transition cursor-pointer shrink-0 whitespace-nowrap ${
@@ -230,4 +278,3 @@ export const Navbar: React.FC<NavbarProps> = ({
     </nav>
   );
 };
-

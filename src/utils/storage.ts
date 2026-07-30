@@ -1,9 +1,17 @@
-import { UserAccount, PlayerCard, MarketItem, UserSquad } from '../types';
+import { UserAccount, MarketItem, UserSquad, AuctionItem, ChatMessage } from '../types';
 import { INITIAL_PLAYER_DATABASE } from '../data/playersDatabase';
 
-const STORAGE_USERS_KEY = 'icons_paper_fc_users_v2';
-const STORAGE_CURRENT_USER = 'icons_paper_fc_current_user_v2';
-const STORAGE_MARKET_KEY = 'icons_paper_fc_market_v2';
+const STORAGE_USERS_KEY = 'icons_paper_fc_users_v4';
+const STORAGE_CURRENT_USER = 'icons_paper_fc_current_user_v4';
+const STORAGE_MARKET_KEY = 'icons_paper_fc_market_v4';
+const STORAGE_AUCTION_KEY = 'icons_paper_fc_auctions_v4';
+const STORAGE_CHAT_KEY = 'icons_paper_fc_chat_v4';
+
+const DEFAULT_EMPTY_SQUAD: UserSquad = {
+  formation: '4-3-3',
+  starting11: {},
+  bench: []
+};
 
 const DEFAULT_SQUAD: UserSquad = {
   formation: '4-3-3',
@@ -28,61 +36,162 @@ const DEFAULT_SQUAD: UserSquad = {
   ]
 };
 
-// Default accounts
-const AYDIN_ACCOUNT: UserAccount = {
-  id: 'usr-aydin-admin',
-  username: 'Aydin',
-  passwordHash: 'aydin123',
-  isAdmin: true,
-  coins: 999999999,
-  points: 999999,
-  inventory: [...INITIAL_PLAYER_DATABASE],
-  squad: DEFAULT_SQUAD,
-  packsOpened: 142,
-  createdAt: Date.now()
-};
-
-const DEMO_GUEST_ACCOUNT: UserAccount = {
-  id: 'usr-demo-guest',
-  username: 'Guest_Striker',
-  passwordHash: '123456',
-  isAdmin: false,
-  coins: 500000,
-  points: 1500,
-  inventory: INITIAL_PLAYER_DATABASE.slice(10, 20),
-  squad: {
-    formation: '4-3-3',
-    starting11: {
-      ST: INITIAL_PLAYER_DATABASE[10],
-      LW: INITIAL_PLAYER_DATABASE[15],
-      RW: INITIAL_PLAYER_DATABASE[20],
-      CAM: INITIAL_PLAYER_DATABASE[21],
-      CM: INITIAL_PLAYER_DATABASE[16],
-      CDM: INITIAL_PLAYER_DATABASE[17],
-      CB1: INITIAL_PLAYER_DATABASE[18],
-      CB2: INITIAL_PLAYER_DATABASE[25],
-      LB: INITIAL_PLAYER_DATABASE[23],
-      RB: INITIAL_PLAYER_DATABASE[24],
-      GK: INITIAL_PLAYER_DATABASE[19]
-    },
-    bench: []
+// Preset Accounts requested by user
+export const PRESET_ACCOUNTS: UserAccount[] = [
+  {
+    id: 'usr-aydin-admin',
+    username: 'Aydin',
+    frontName: 'Master Admin Aydin',
+    passwordHash: 'aydin123',
+    isAdmin: true,
+    coins: 999999999,
+    points: 9999999,
+    inventory: [...INITIAL_PLAYER_DATABASE],
+    squad: DEFAULT_SQUAD,
+    packsOpened: 250,
+    createdAt: Date.now() - 10000000,
+    totalSalaryReceived: 100000000
   },
-  packsOpened: 12,
-  createdAt: Date.now()
-};
+  {
+    id: 'usr-faheem',
+    username: 'FAHCR7',
+    frontName: 'Faheem CR7',
+    passwordHash: 'faheemhananandfarhan67',
+    isAdmin: false,
+    coins: 0,
+    points: 150,
+    inventory: [],
+    squad: DEFAULT_EMPTY_SQUAD,
+    packsOpened: 0,
+    createdAt: Date.now() - 5000000,
+    totalSalaryReceived: 0
+  },
+  {
+    id: 'usr-hamad',
+    username: 'Hamad',
+    frontName: 'Hamad',
+    passwordHash: 'Hamad67.com',
+    isAdmin: false,
+    coins: 0,
+    points: 150,
+    inventory: [],
+    squad: DEFAULT_EMPTY_SQUAD,
+    packsOpened: 0,
+    createdAt: Date.now() - 4000000,
+    totalSalaryReceived: 0
+  },
+  {
+    id: 'usr-rinshan',
+    username: 'Rinshan',
+    frontName: 'Rinshan',
+    passwordHash: 'nonchalantrinchu',
+    isAdmin: false,
+    coins: 0,
+    points: 150,
+    inventory: [],
+    squad: DEFAULT_EMPTY_SQUAD,
+    packsOpened: 0,
+    createdAt: Date.now() - 3500000,
+    totalSalaryReceived: 0
+  },
+  {
+    id: 'usr-razan',
+    username: 'Brazan67',
+    frontName: 'Razan',
+    passwordHash: 'Brazan67',
+    isAdmin: false,
+    coins: 0,
+    points: 150,
+    inventory: [],
+    squad: DEFAULT_EMPTY_SQUAD,
+    packsOpened: 0,
+    createdAt: Date.now() - 3000000,
+    totalSalaryReceived: 0
+  },
+  {
+    id: 'usr-insaf',
+    username: 'Isagi Insaf',
+    frontName: 'Insaf',
+    passwordHash: 'yoichi isagi',
+    isAdmin: false,
+    coins: 0,
+    points: 150,
+    inventory: [],
+    squad: DEFAULT_EMPTY_SQUAD,
+    packsOpened: 0,
+    createdAt: Date.now() - 2800000,
+    totalSalaryReceived: 0
+  },
+  {
+    id: 'usr-aban',
+    username: 'Aban',
+    frontName: 'Aban',
+    passwordHash: 'Abanthegk',
+    isAdmin: false,
+    coins: 0,
+    points: 150,
+    inventory: [],
+    squad: DEFAULT_EMPTY_SQUAD,
+    packsOpened: 0,
+    createdAt: Date.now() - 2500000,
+    totalSalaryReceived: 0
+  },
+  {
+    id: 'usr-hashid',
+    username: 'Acid',
+    frontName: 'Hashid',
+    passwordHash: 'AcidBase76',
+    isAdmin: false,
+    coins: 0,
+    points: 150,
+    inventory: [],
+    squad: DEFAULT_EMPTY_SQUAD,
+    packsOpened: 0,
+    createdAt: Date.now() - 2000000,
+    totalSalaryReceived: 0
+  }
+];
 
 export function getStoredUsers(): UserAccount[] {
-  if (typeof window === 'undefined') return [AYDIN_ACCOUNT, DEMO_GUEST_ACCOUNT];
+  if (typeof window === 'undefined') return PRESET_ACCOUNTS;
   try {
     const raw = localStorage.getItem(STORAGE_USERS_KEY);
     if (!raw) {
-      const initial = [AYDIN_ACCOUNT, DEMO_GUEST_ACCOUNT];
-      localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(initial));
-      return initial;
+      localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(PRESET_ACCOUNTS));
+      return PRESET_ACCOUNTS;
     }
-    return JSON.parse(raw);
+    const parsed: UserAccount[] = JSON.parse(raw);
+    let updated = false;
+    const combined = [...parsed];
+    for (const preset of PRESET_ACCOUNTS) {
+      const matchIndex = combined.findIndex(
+        (u) =>
+          u.username.toLowerCase() === preset.username.toLowerCase() ||
+          u.id === preset.id ||
+          (u.frontName && u.frontName.toLowerCase().includes(preset.username.toLowerCase()))
+      );
+
+      if (matchIndex === -1) {
+        combined.push(preset);
+        updated = true;
+      } else {
+        // Guarantee passwordHash and core credentials match PRESET_ACCOUNTS
+        if (combined[matchIndex].passwordHash !== preset.passwordHash) {
+          combined[matchIndex] = {
+            ...combined[matchIndex],
+            passwordHash: preset.passwordHash,
+            frontName: preset.frontName || combined[matchIndex].frontName
+          };
+          updated = true;
+        }
+      }
+    }
+    if (updated) {
+      localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(combined));
+    }
+    return combined;
   } catch {
-    return [AYDIN_ACCOUNT, DEMO_GUEST_ACCOUNT];
+    return PRESET_ACCOUNTS;
   }
 }
 
@@ -104,7 +213,7 @@ export function getCurrentUser(): UserAccount {
   if (found) return found;
 
   // Default to Aydin if none set
-  localStorage.setItem(STORAGE_CURRENT_USER, AYDIN_ACCOUNT.id);
+  localStorage.setItem(STORAGE_CURRENT_USER, PRESET_ACCOUNTS[0].id);
   return users[0];
 }
 
@@ -130,29 +239,7 @@ export function getMarketItems(): MarketItem[] {
   try {
     const raw = localStorage.getItem(STORAGE_MARKET_KEY);
     if (!raw) {
-      const initial: MarketItem[] = [
-        {
-          id: 'market-1',
-          sellerUsername: 'ProGamer99',
-          card: INITIAL_PLAYER_DATABASE[2], // Maradona
-          priceCoins: 3800000,
-          listedAt: Date.now() - 3600000
-        },
-        {
-          id: 'market-2',
-          sellerUsername: 'FutMaster',
-          card: INITIAL_PLAYER_DATABASE[12], // Haaland
-          priceCoins: 2900000,
-          listedAt: Date.now() - 1800000
-        },
-        {
-          id: 'market-3',
-          sellerUsername: 'PaperKing',
-          card: INITIAL_PLAYER_DATABASE[14], // Arda Guler
-          priceCoins: 1500000,
-          listedAt: Date.now() - 900000
-        }
-      ];
+      const initial: MarketItem[] = [];
       localStorage.setItem(STORAGE_MARKET_KEY, JSON.stringify(initial));
       return initial;
     }
@@ -165,4 +252,55 @@ export function getMarketItems(): MarketItem[] {
 export function saveMarketItems(items: MarketItem[]): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(STORAGE_MARKET_KEY, JSON.stringify(items));
+}
+
+// Live Auctions Storage
+export function getAuctions(): AuctionItem[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_AUCTION_KEY);
+    if (!raw) {
+      const initialAuctions: AuctionItem[] = [];
+      localStorage.setItem(STORAGE_AUCTION_KEY, JSON.stringify(initialAuctions));
+      return initialAuctions;
+    }
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+export function saveAuctions(auctions: AuctionItem[]): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(STORAGE_AUCTION_KEY, JSON.stringify(auctions));
+}
+
+// Live Chat Storage
+export function getChatMessages(): ChatMessage[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_CHAT_KEY);
+    if (!raw) {
+      const initialChat: ChatMessage[] = [
+        {
+          id: 'chat-welcome',
+          senderUsername: 'Aydin',
+          senderFrontName: 'Master Admin Aydin',
+          text: 'Welcome to Icons Paper FC! Squad chat is live. ⚽',
+          timestamp: Date.now(),
+          isAdmin: true
+        }
+      ];
+      localStorage.setItem(STORAGE_CHAT_KEY, JSON.stringify(initialChat));
+      return initialChat;
+    }
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+export function saveChatMessages(messages: ChatMessage[]): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(STORAGE_CHAT_KEY, JSON.stringify(messages));
 }

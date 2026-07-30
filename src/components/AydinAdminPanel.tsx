@@ -124,6 +124,18 @@ export const AydinAdminPanel: React.FC<AydinAdminPanelProps> = ({
     onUpdateUser(updated);
   };
 
+  const handlePaySalary = (amount: number) => {
+    soundFx.playCoinSound();
+    const currentSalary = targetUser.totalSalaryReceived || 0;
+    const updated: UserAccount = {
+      ...targetUser,
+      points: targetUser.points + amount,
+      totalSalaryReceived: currentSalary + amount
+    };
+    onUpdateUser(updated);
+    alert(`Paid $${amount.toLocaleString()} Salary to ${targetUser.frontName || targetUser.username}!`);
+  };
+
   const handleGrantCoins = () => {
     soundFx.playCoinSound();
     const updated: UserAccount = {
@@ -250,6 +262,7 @@ export const AydinAdminPanel: React.FC<AydinAdminPanelProps> = ({
             <div className="text-gray-400">Current User Balances:</div>
             <div className="text-green-400 font-bold">Paper Cash: ${targetUser.points.toLocaleString()}</div>
             <div className="text-amber-400 font-bold">Coins: 🪙 {targetUser.coins.toLocaleString()}</div>
+            <div className="text-emerald-300 font-bold border-t border-white/10 pt-1">Total Salary Paid: ${(targetUser.totalSalaryReceived || 0).toLocaleString()} 💰</div>
           </div>
 
           <div className="space-y-3 pt-2">
@@ -267,6 +280,18 @@ export const AydinAdminPanel: React.FC<AydinAdminPanelProps> = ({
                   className="px-4 py-1.5 bg-green-500 hover:bg-green-400 text-black font-black text-xs rounded-xl cursor-pointer"
                 >
                   GIVE CASH ⚡
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold text-emerald-400 uppercase">PAY SALARY ($)</label>
+              <div className="flex gap-2 mt-1">
+                <button
+                  onClick={() => handlePaySalary(cashAmount)}
+                  className="w-full py-2 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-black font-black text-xs uppercase tracking-wider rounded-xl shadow cursor-pointer"
+                >
+                  PAY ${cashAmount.toLocaleString()} SALARY 💰
                 </button>
               </div>
             </div>

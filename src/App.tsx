@@ -4,92 +4,25 @@ import { INITIAL_PLAYER_DATABASE } from './data/playersDatabase';
 import { INITIAL_HOME_UPDATES } from './data/updatesDatabase';
 import { PACKS_LIST } from './utils/packs';
 import { FCPlayerCard } from './components/FCPlayerCard';
-import { Navbar } from './components/Navbar';
+import { Navbar, TabType } from './components/Navbar';
 import { PackOpeningStage } from './components/PackOpeningStage';
 import { SquadPitch } from './components/SquadPitch';
 import { TransferMarket } from './components/TransferMarket';
+import { BiddingMarket } from './components/BiddingMarket';
+import { CommunityChat } from './components/CommunityChat';
+import { UserProfileModal } from './components/UserProfileModal';
 import { AydinAdminPanel } from './components/AydinAdminPanel';
 import { AuthModal } from './components/AuthModal';
 import { HomeUpdatesFeed } from './components/HomeUpdatesFeed';
 import { soundFx } from './utils/audio';
-
-const DEFAULT_AYDIN_ACCOUNT: UserAccount = {
-  id: 'usr-aydin-master',
-  username: 'Aydin',
-  passwordHash: 'aydin123',
-  isAdmin: true,
-  coins: 999999999,
-  points: 999999999,
-  inventory: [
-    INITIAL_PLAYER_DATABASE[0], // Aydin 99 King
-    INITIAL_PLAYER_DATABASE[1], // Pele 98
-    INITIAL_PLAYER_DATABASE[4], // Zidane 96
-    INITIAL_PLAYER_DATABASE[9]  // Messi 98
-  ],
-  squad: {
-    formation: '4-3-3',
-    starting11: {
-      '0': INITIAL_PLAYER_DATABASE[8], // Yashin GK
-      '1': INITIAL_PLAYER_DATABASE[16], // Davies LB
-      '2': INITIAL_PLAYER_DATABASE[7],  // Maldini CB
-      '3': INITIAL_PLAYER_DATABASE[18], // Saliba CB
-      '4': INITIAL_PLAYER_DATABASE[17], // Hakimi RB
-      '5': INITIAL_PLAYER_DATABASE[4],  // Zidane CM
-      '6': INITIAL_PLAYER_DATABASE[0],  // Aydin 99 ST -> CAM
-      '7': INITIAL_PLAYER_DATABASE[12], // De Bruyne CM
-      '8': INITIAL_PLAYER_DATABASE[3],  // Ronaldinho LW
-      '9': INITIAL_PLAYER_DATABASE[1],  // Pele ST
-      '10': INITIAL_PLAYER_DATABASE[9]  // Messi RW
-    },
-    bench: []
-  },
-  packsOpened: 12,
-  createdAt: Date.now()
-};
-
-const DEFAULT_GUEST_ACCOUNT: UserAccount = {
-  id: 'usr-guest-starter',
-  username: 'New_Player',
-  passwordHash: '1234',
-  isAdmin: false,
-  coins: 15000,
-  points: 15000,
-  inventory: [],
-  squad: {
-    formation: '4-3-3',
-    starting11: {},
-    bench: []
-  },
-  packsOpened: 0,
-  createdAt: Date.now()
-};
+import { getStoredUsers, saveUsers } from './utils/storage';
 
 export default function App() {
   const [users, setUsers] = useState<UserAccount[]>(() => {
-    try {
-      const saved = localStorage.getItem('icons_paper_fc_users_v2');
-      if (saved) {
-        const parsed: UserAccount[] = JSON.parse(saved);
-        const hasAydin = parsed.some((u) => u.username.toLowerCase() === 'aydin');
-        const list = hasAydin ? parsed : [DEFAULT_AYDIN_ACCOUNT, ...parsed];
-        return list.map((u) => {
-          if (!u.isAdmin && u.coins < 15000 && u.packsOpened === 0) {
-            return {
-              ...u,
-              coins: 15000,
-              points: Math.max(u.points, 15000)
-            };
-          }
-          return u;
-        });
-      }
-    } catch {
-      // Fallback
-    }
-    return [DEFAULT_AYDIN_ACCOUNT, DEFAULT_GUEST_ACCOUNT];
+    return getStoredUsers();
   });
 
-  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null); // Always show Sign Up / Login Gateway first!
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
 
   const [homeUpdates, setHomeUpdates] = useState<HomeScreenUpdate[]>(() => {
     try {
@@ -101,9 +34,11 @@ export default function App() {
     return INITIAL_HOME_UPDATES;
   });
 
-  const [activeTab, setActiveTab] = useState<'STORE' | 'SQUAD' | 'MARKET' | 'INVENTORY' | 'ADMIN'>('STORE');
+  const [activeTab, setActiveTab] = useState<TabType>('STORE');
 
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(!currentUser);
+  const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
+
   const [selectedPackOpening, setSelectedPackOpening] = useState<{
     pack: typeof PACKS_LIST[0];
     pulledCards: PlayerCard[];
@@ -119,7 +54,7 @@ export default function App() {
     },
     {
       id: 'mkt-2',
-      sellerUsername: 'FootballFan99',
+      sellerUsername: 'Hamad',
       card: INITIAL_PLAYER_DATABASE[11], // Mbappe
       priceCoins: 3700000,
       listedAt: Date.now() - 50000
@@ -138,9 +73,9 @@ export default function App() {
   // Auto Sync across tabs & windows
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'icons_paper_fc_users_v2' && e.newValue) {
+      if (e.newValue) {
         try {
-          const freshUsers: UserAccount[] = JSON.parse(e.newValue);
+          const freshUsers = getStoredUsers();
           setUsers(freshUsers);
         } catch {
           // Fail gracefully
@@ -152,24 +87,15 @@ export default function App() {
   }, []);
 
   const handleReloadUsers = () => {
-    try {
-      const saved = localStorage.getItem('icons_paper_fc_users_v2');
-      if (saved) {
-        const parsed: UserAccount[] = JSON.parse(saved);
-        const hasAydin = parsed.some((u) => u.username.toLowerCase() === 'aydin');
-        const list = hasAydin ? parsed : [DEFAULT_AYDIN_ACCOUNT, ...parsed];
-        setUsers(list);
-      }
-    } catch {
-      // Fail gracefully
-    }
+    const fresh = getStoredUsers();
+    setUsers(fresh);
   };
 
   useEffect(() => {
     try {
-      localStorage.setItem('icons_paper_fc_users_v2', JSON.stringify(users));
+      saveUsers(users);
       if (currentUser) {
-        localStorage.setItem('icons_paper_fc_current_user_v2', JSON.stringify(currentUser));
+        localStorage.setItem('icons_paper_fc_current_user_v3', currentUser.id);
       }
       localStorage.setItem('icons_paper_fc_updates_v1', JSON.stringify(homeUpdates));
     } catch {
@@ -354,6 +280,7 @@ export default function App() {
         activeTab={activeTab}
         onChangeTab={setActiveTab}
         onOpenAuth={() => setIsAuthOpen(true)}
+        onOpenProfile={() => setIsProfileOpen(true)}
         onLogout={() => {
           soundFx.playClick();
           setCurrentUser(null);
@@ -381,14 +308,14 @@ export default function App() {
                   OPEN ULTIMATE PACKS & BUILD YOUR DREAM TEAM
                 </h1>
                 <p className="text-xs sm:text-sm text-gray-400">
-                  Unpack 99 OVR Prime Icons, TOTY Superstars, and Aydin Exclusive Custom Cards with cinematic walkout animations!
+                  Unpack 99 OVR Zeral FC Legends, TOTY Superstars, and Aydin Exclusive Custom Cards with cinematic walkout animations!
                 </p>
               </div>
 
               {currentUser.isAdmin && (
                 <div className="bg-red-500/20 border border-red-500/40 rounded-2xl p-4 text-center shrink-0">
                   <div className="text-xs font-black text-red-400 uppercase tracking-wider">AYDIN MASTER ADMIN</div>
-                  <div className="text-[11px] text-gray-300 mt-1">Unlimited Funds Active</div>
+                  <div className="text-[11px] text-gray-300 mt-1">Salary & Gifting Active</div>
                 </div>
               )}
             </div>
@@ -446,6 +373,18 @@ export default function App() {
               handleUpdateCurrentUser({ ...currentUser, squad: newSquad })
             }
           />
+        )}
+
+        {activeTab === 'BIDDING' && (
+          <BiddingMarket
+            currentUser={currentUser}
+            onUpdateUser={handleUpdateCurrentUser}
+            allUsers={users}
+          />
+        )}
+
+        {activeTab === 'CHAT' && (
+          <CommunityChat currentUser={currentUser} />
         )}
 
         {activeTab === 'MARKET' && (
@@ -525,7 +464,6 @@ export default function App() {
             onDeleteHomeUpdate={handleDeleteHomeUpdate}
           />
         )}
-
       </main>
 
       {selectedPackOpening && (
@@ -534,6 +472,14 @@ export default function App() {
           pulledCards={selectedPackOpening.pulledCards}
           onComplete={handleClaimPackCards}
           onCancel={() => setSelectedPackOpening(null)}
+        />
+      )}
+
+      {isProfileOpen && (
+        <UserProfileModal
+          currentUser={currentUser}
+          onUpdateUser={handleUpdateCurrentUser}
+          onClose={() => setIsProfileOpen(false)}
         />
       )}
 
@@ -550,7 +496,7 @@ export default function App() {
       <footer className="h-9 bg-black border-t border-white/10 flex items-center justify-between px-4 sm:px-8 text-[10px] text-gray-500 font-mono shrink-0">
         <div className="flex gap-4">
           <span>SERVER STATUS: <span className="text-green-400 font-bold">OPERATIONAL ⚡</span></span>
-          <span className="hidden sm:inline">CONNECTED PLAYERS: 12,840</span>
+          <span className="hidden sm:inline">CONNECTED SQUAD MEMBERS: 8 ACTIVE</span>
         </div>
         <div>© 2026 ICONS PAPER FC • BUILT FOR AYDIN</div>
       </footer>

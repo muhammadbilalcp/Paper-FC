@@ -109,6 +109,41 @@ export interface UserAccount {
   squad: UserSquad;
   packsOpened: number;
   createdAt: number;
+  frontName?: string;
+  avatarUrl?: string;
+  totalSalaryReceived?: number;
+}
+
+export interface BidLog {
+  bidderUsername: string;
+  amount: number;
+  timestamp: number;
+}
+
+export interface AuctionItem {
+  id: string;
+  sellerUsername: string;
+  card: PlayerCard;
+  startingBid: number;
+  buyNowPrice: number;
+  currentBid: number;
+  highestBidderUsername?: string;
+  bidHistory: BidLog[];
+  expiresAt: number;
+  createdAt: number;
+  status: 'ACTIVE' | 'SOLD' | 'EXPIRED';
+}
+
+export interface ChatMessage {
+  id: string;
+  senderUsername: string;
+  senderFrontName?: string;
+  senderAvatar?: string;
+  text: string;
+  timestamp: number;
+  sharedCard?: PlayerCard;
+  isAdmin?: boolean;
+  isSystem?: boolean;
 }
 
 export interface MarketItem {
