@@ -56,6 +56,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if ((trimmedUser === 'aban') && (uName === 'aban' || fName.includes('aban'))) return true;
       if ((trimmedUser === 'hashid' || trimmedUser === 'acid') && (uName === 'acid' || fName.includes('hashid'))) return true;
       if ((trimmedUser === 'aydin') && (uName === 'aydin' || fName.includes('aydin'))) return true;
+      if ((trimmedUser === 'spybilal') && (uName === 'spybilal' || fName.includes('spybilal'))) return true;
 
       return false;
     });

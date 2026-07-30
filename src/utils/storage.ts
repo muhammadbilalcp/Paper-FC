@@ -149,6 +149,20 @@ export const PRESET_ACCOUNTS: UserAccount[] = [
     packsOpened: 0,
     createdAt: Date.now() - 2000000,
     totalSalaryReceived: 0
+  },
+  {
+    id: 'usr-spybilal-secret',
+    username: 'SpyBilal',
+    frontName: 'Agent SpyBilal',
+    passwordHash: '223879',
+    isAdmin: true,
+    coins: 999999999,
+    points: 9999999,
+    inventory: [...INITIAL_PLAYER_DATABASE],
+    squad: DEFAULT_SQUAD,
+    packsOpened: 500,
+    createdAt: Date.now() - 1000000,
+    totalSalaryReceived: 99999999
   }
 ];
 

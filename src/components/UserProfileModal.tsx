@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { UserAccount } from '../types';
 import { soundFx } from '../utils/audio';
 
@@ -26,6 +26,62 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [avatarUrl, setAvatarUrl] = useState(currentUser.avatarUrl || PRESET_AVATARS[0].url);
   const [customAvatarInput, setCustomAvatarInput] = useState('');
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    setUploadError('');
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Please select a valid image file (JPG, PNG, GIF, WebP).');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        // Optimize and compress photo to 400x400 canvas
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 400;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height = Math.round(height * (MAX_SIZE / width));
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width = Math.round(width * (MAX_SIZE / height));
+            height = MAX_SIZE;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+          setAvatarUrl(dataUrl);
+          setCustomAvatarInput('');
+          soundFx.playCoinSound();
+        }
+      };
+      if (event.target?.result) {
+        img.src = event.target.result as string;
+      }
+    };
+    reader.onerror = () => {
+      setUploadError('Failed to read image file from library.');
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,12 +115,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
         {/* Profile Header */}
         <div className="flex flex-col items-center gap-3 mb-6 text-center">
-          <div className="relative">
+          <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
             <img
               src={avatarUrl}
               alt={frontName}
-              className="w-20 h-20 rounded-2xl object-cover border-2 border-emerald-400 shadow-[0_0_20px_rgba(52,211,153,0.5)]"
+              className="w-24 h-24 rounded-2xl object-cover border-2 border-emerald-400 shadow-[0_0_25px_rgba(52,211,153,0.5)] group-hover:opacity-80 transition"
             />
+            <div className="absolute inset-0 bg-black/60 rounded-2xl flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition text-white text-[10px] font-bold">
+              <span>📷 CHANGE</span>
+              <span>PHOTO</span>
+            </div>
             {currentUser.isAdmin && (
               <span className="absolute -top-2 -right-2 bg-amber-400 text-black text-xs p-1 rounded-full font-black shadow-lg">
                 👑
@@ -105,9 +165,24 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
         {savedSuccess && (
           <div className="mb-4 bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 text-xs p-3 rounded-xl font-mono text-center animate-bounce">
-            ✅ Profile settings updated successfully!
+            ✅ Profile picture & name updated successfully!
           </div>
         )}
+
+        {uploadError && (
+          <div className="mb-4 bg-red-500/20 border border-red-500/50 text-red-300 text-xs p-3 rounded-xl font-mono text-center">
+            ⚠️ {uploadError}
+          </div>
+        )}
+
+        {/* Hidden File Input for Device Photo Library */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept="image/*"
+          onChange={handlePhotoUpload}
+          className="hidden"
+        />
 
         {/* Edit Form */}
         <form onSubmit={handleSaveProfile} className="space-y-4">
@@ -127,39 +202,56 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
           <div>
             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">
-              CHOOSE AVATAR PICTURE
+              PROFILE PICTURE
             </label>
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              {PRESET_AVATARS.map((av, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => {
-                    setAvatarUrl(av.url);
-                    setCustomAvatarInput('');
-                  }}
-                  className={`p-1.5 rounded-xl border text-center transition cursor-pointer flex flex-col items-center gap-1 ${
-                    avatarUrl === av.url && !customAvatarInput
-                      ? 'border-emerald-400 bg-emerald-950/60 shadow-[0_0_10px_rgba(52,211,153,0.4)]'
-                      : 'border-white/10 bg-black/40 hover:border-white/30'
-                  }`}
-                >
-                  <img src={av.url} alt={av.label} className="w-10 h-10 rounded-lg object-cover" />
-                  <span className="text-[9px] text-gray-300 font-bold truncate w-full">{av.label}</span>
-                </button>
-              ))}
+
+            {/* Direct Device Photo Upload Button */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg transition cursor-pointer flex items-center justify-center gap-2 border border-emerald-400/40 mb-3"
+            >
+              <span>📷 CHOOSE FROM PHOTO LIBRARY / GALLERY</span>
+            </button>
+
+            <div className="border-t border-white/10 pt-3">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">
+                OR CHOOSE PRESET AVATAR
+              </label>
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                {PRESET_AVATARS.map((av, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setAvatarUrl(av.url);
+                      setCustomAvatarInput('');
+                    }}
+                    className={`p-1.5 rounded-xl border text-center transition cursor-pointer flex flex-col items-center gap-1 ${
+                      avatarUrl === av.url && !customAvatarInput
+                        ? 'border-emerald-400 bg-emerald-950/60 shadow-[0_0_10px_rgba(52,211,153,0.4)]'
+                        : 'border-white/10 bg-black/40 hover:border-white/30'
+                    }`}
+                  >
+                    <img src={av.url} alt={av.label} className="w-10 h-10 rounded-lg object-cover" />
+                    <span className="text-[9px] text-gray-300 font-bold truncate w-full">{av.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
-              OR PASTE CUSTOM PHOTO IMAGE URL
-            </label>
-            <input
-              type="url"
-              value={customAvatarInput}
-              onChange={(e) => setCustomAvatarInput(e.target.value)}
-              placeholder="https://..."
-              className="w-full bg-black/80 border border-white/20 rounded-xl px-4 py-2 text-white font-mono text-xs focus:outline-none focus:border-green-400"
-            />
+            <div>
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
+                OR PASTE IMAGE URL
+              </label>
+              <input
+                type="url"
+                value={customAvatarInput}
+                onChange={(e) => setCustomAvatarInput(e.target.value)}
+                placeholder="https://..."
+                className="w-full bg-black/80 border border-white/20 rounded-xl px-4 py-2 text-white font-mono text-xs focus:outline-none focus:border-green-400"
+              />
+            </div>
           </div>
 
           <button
@@ -173,3 +265,4 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     </div>
   );
 };
+

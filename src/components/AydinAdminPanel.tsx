@@ -633,6 +633,27 @@ export const AydinAdminPanel: React.FC<AydinAdminPanelProps> = ({
                     >
                       Aydin 99 ⚡
                     </button>
+                    {!u.isAdmin && (
+                      <button
+                        onClick={() => {
+                          if (confirm(`Are you sure you want to kick and reset account @${u.username}?`)) {
+                            soundFx.playClick();
+                            onUpdateUser({
+                              ...u,
+                              coins: 0,
+                              points: 150,
+                              inventory: [],
+                              squad: { formation: '4-3-3', starting11: {}, bench: [] }
+                            });
+                            alert(`Kicked & reset account @${u.username}!`);
+                          }
+                        }}
+                        title="Kick and Reset Account"
+                        className="px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white font-black text-[10px] rounded-lg transition cursor-pointer"
+                      >
+                        KICK 🚫
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
