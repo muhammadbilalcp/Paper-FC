@@ -33,6 +33,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [uploadError, setUploadError] = useState('');
 
+  // Change Password State
+  const [currentPasswordInput, setCurrentPasswordInput] = useState('');
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [passwordStatus, setPasswordStatus] = useState<{ msg: string; isError: boolean } | null>(null);
+
   // Transfer Coins State
   const [targetRecipient, setTargetRecipient] = useState('');
   const [transferAmount, setTransferAmount] = useState<number>(100000);
@@ -112,6 +119,44 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       setSavedSuccess(false);
       onClose();
     }, 800);
+  };
+
+  const handleChangePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordStatus(null);
+
+    if (!currentPasswordInput) {
+      setPasswordStatus({ msg: 'Please enter your current password.', isError: true });
+      return;
+    }
+
+    if (currentPasswordInput !== currentUser.passwordHash) {
+      setPasswordStatus({ msg: 'Current password does not match! Please try again.', isError: true });
+      return;
+    }
+
+    if (!newPasswordInput || newPasswordInput.trim().length < 2) {
+      setPasswordStatus({ msg: 'New password must be at least 2 characters long.', isError: true });
+      return;
+    }
+
+    if (newPasswordInput !== confirmPasswordInput) {
+      setPasswordStatus({ msg: 'New password and confirm password do not match!', isError: true });
+      return;
+    }
+
+    soundFx.playCoinSound();
+
+    const updatedUser: UserAccount = {
+      ...currentUser,
+      passwordHash: newPasswordInput.trim()
+    };
+
+    onUpdateUser(updatedUser);
+    setPasswordStatus({ msg: '🔑 Password updated successfully! Use your new password next time you log in.', isError: false });
+    setCurrentPasswordInput('');
+    setNewPasswordInput('');
+    setConfirmPasswordInput('');
   };
 
   const handleSendCoins = async (e: React.FormEvent) => {
@@ -301,6 +346,85 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             SAVE PROFILE SETTINGS ➔
           </button>
         </form>
+
+        {/* Change Password Section */}
+        <div className="mt-6 pt-6 border-t border-white/10">
+          <h3 className="text-xs font-black text-emerald-400 uppercase tracking-widest mb-3 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <span>🔑 CHANGE ACCOUNT PASSWORD</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowPasswords(!showPasswords)}
+              className="text-[10px] text-gray-400 hover:text-white font-mono flex items-center gap-1 bg-white/5 hover:bg-white/10 px-2 py-1 rounded-lg border border-white/10 cursor-pointer transition"
+            >
+              <span>{showPasswords ? '🙈 HIDE' : '👁️ SHOW'}</span>
+            </button>
+          </h3>
+
+          <form onSubmit={handleChangePassword} className="space-y-3 bg-black/50 p-4 rounded-2xl border border-emerald-500/30">
+            <div>
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
+                CURRENT PASSWORD
+              </label>
+              <input
+                type={showPasswords ? 'text' : 'password'}
+                required
+                value={currentPasswordInput}
+                onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                placeholder="Enter current password..."
+                className="w-full bg-neutral-900 border border-white/20 rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-emerald-400"
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
+                NEW PASSWORD
+              </label>
+              <input
+                type={showPasswords ? 'text' : 'password'}
+                required
+                value={newPasswordInput}
+                onChange={(e) => setNewPasswordInput(e.target.value)}
+                placeholder="Enter new password..."
+                className="w-full bg-neutral-900 border border-white/20 rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-emerald-400"
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
+                CONFIRM NEW PASSWORD
+              </label>
+              <input
+                type={showPasswords ? 'text' : 'password'}
+                required
+                value={confirmPasswordInput}
+                onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                placeholder="Confirm new password..."
+                className="w-full bg-neutral-900 border border-white/20 rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-emerald-400"
+              />
+            </div>
+
+            {passwordStatus && (
+              <div
+                className={`text-xs p-2.5 rounded-xl font-mono ${
+                  passwordStatus.isError
+                    ? 'bg-red-500/20 border border-red-500/50 text-red-300'
+                    : 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-300'
+                }`}
+              >
+                {passwordStatus.msg}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-black font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition cursor-pointer"
+            >
+              🔒 UPDATE PASSWORD NOW
+            </button>
+          </form>
+        </div>
 
         {/* Transfer FC Coins to Player Account Section */}
         <div className="mt-6 pt-6 border-t border-white/10">

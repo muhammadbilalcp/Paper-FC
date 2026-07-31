@@ -212,9 +212,9 @@ function loadDatabase(): GlobalDatabase {
             return {
               ...u,
               isAdmin: u.id === 'usr-aydin-admin' || u.username.toLowerCase() === 'aydin' ? true : false,
-              coins: 0,
-              points: 0,
-              totalSalaryReceived: 0
+              coins: typeof u.coins === 'number' ? u.coins : 0,
+              points: typeof u.points === 'number' ? u.points : 0,
+              totalSalaryReceived: typeof u.totalSalaryReceived === 'number' ? u.totalSalaryReceived : 0
             };
           });
         if (parsed.users.length === 0) {

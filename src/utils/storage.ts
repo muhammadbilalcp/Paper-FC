@@ -208,17 +208,16 @@ export function getStoredUsers(): UserAccount[] {
             return {
               ...u,
               isAdmin: true,
-              coins: 0,
-              points: 0,
-              totalSalaryReceived: 0
+              coins: typeof u.coins === 'number' ? u.coins : 0,
+              points: typeof u.points === 'number' ? u.points : 0
             };
           }
-          // Reset other accounts to 0 coins/points
+          // Preserve user coins, points and salary
           return {
             ...u,
-            coins: 0,
-            points: 0,
-            totalSalaryReceived: 0
+            coins: typeof u.coins === 'number' ? u.coins : 0,
+            points: typeof u.points === 'number' ? u.points : 0,
+            totalSalaryReceived: typeof u.totalSalaryReceived === 'number' ? u.totalSalaryReceived : 0
           };
         });
       if (filtered.length > 0) return filtered;
@@ -289,10 +288,40 @@ export async function transferCoinsApi(
   coinsAmount: number,
   pointsAmount: number = 0
 ): Promise<{ success: boolean; message: string; allUsers?: UserAccount[] }> {
+  const currentUsers = getStoredUsers();
+  const cleanTarget = receiverUsername.trim().toLowerCase();
+
   // Try Firebase Firestore transfer first for instant cloud sync
   const firestoreRes = await transferCoinsFirestore(senderId, receiverUsername, coinsAmount, pointsAmount);
+
+  // Update local memory / localStorage users array as well
+  const updatedUsers = currentUsers.map((u) => {
+    const isSender = u.id === senderId || u.username.toLowerCase() === senderId.toLowerCase();
+    const isReceiver =
+      u.username.toLowerCase() === cleanTarget ||
+      (u.frontName && u.frontName.toLowerCase() === cleanTarget);
+
+    if (isSender && !u.isAdmin) {
+      return {
+        ...u,
+        coins: Math.max(0, u.coins - coinsAmount),
+        points: Math.max(0, u.points - pointsAmount)
+      };
+    }
+    if (isReceiver) {
+      return {
+        ...u,
+        coins: (u.coins || 0) + coinsAmount,
+        points: (u.points || 0) + pointsAmount
+      };
+    }
+    return u;
+  });
+
+  saveUsers(updatedUsers);
+
   if (firestoreRes.success) {
-    return { success: true, message: firestoreRes.message };
+    return { success: true, message: firestoreRes.message, allUsers: updatedUsers };
   }
 
   // Fallback to Express backend transfer endpoint
@@ -309,7 +338,7 @@ export async function transferCoinsApi(
     if (data.allUsers) {
       saveUsers(data.allUsers);
     }
-    return { success: true, message: `Successfully sent 🪙 ${coinsAmount.toLocaleString()} FC Coins to @${receiverUsername}!`, allUsers: data.allUsers };
+    return { success: true, message: `Successfully sent 🪙 ${coinsAmount.toLocaleString()} FC Coins to @${receiverUsername}!`, allUsers: data.allUsers || updatedUsers };
   } catch (err: any) {
     return { success: false, message: err?.message || 'Network error during coin transfer.' };
   }

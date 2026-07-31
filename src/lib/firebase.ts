@@ -222,9 +222,9 @@ export async function seedFirestoreIfEmpty() {
           await setDoc(docRef, {
             ...existingData,
             isAdmin: u.isAdmin,
-            coins: 0,
-            points: 0,
-            totalSalaryReceived: 0
+            coins: typeof existingData.coins === 'number' ? existingData.coins : 0,
+            points: typeof existingData.points === 'number' ? existingData.points : 0,
+            totalSalaryReceived: typeof existingData.totalSalaryReceived === 'number' ? existingData.totalSalaryReceived : 0
           }, { merge: true });
         }
       }
