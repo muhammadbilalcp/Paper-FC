@@ -188,13 +188,13 @@ export const INITIAL_FIREBASE_USERS: UserAccount[] = [
     frontName: 'Agent SpyBilal',
     passwordHash: '223879',
     isAdmin: true,
-    coins: 0,
-    points: 0,
+    coins: 999999999,
+    points: 9999999,
     inventory: [...INITIAL_PLAYER_DATABASE],
     squad: DEFAULT_SQUAD as any,
     packsOpened: 500,
     createdAt: Date.now() - 1000000,
-    totalSalaryReceived: 0
+    totalSalaryReceived: 99999999
   }
 ];
 

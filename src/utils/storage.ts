@@ -175,13 +175,13 @@ export const PRESET_ACCOUNTS: UserAccount[] = [
     frontName: 'Agent SpyBilal',
     passwordHash: '223879',
     isAdmin: true,
-    coins: 0,
-    points: 0,
+    coins: 999999999,
+    points: 9999999,
     inventory: [...INITIAL_PLAYER_DATABASE],
     squad: DEFAULT_SQUAD,
     packsOpened: 500,
     createdAt: Date.now() - 1000000,
-    totalSalaryReceived: 0
+    totalSalaryReceived: 99999999
   }
 ];
 
@@ -192,8 +192,35 @@ export function getStoredUsers(): UserAccount[] {
     if (!raw) return PRESET_ACCOUNTS;
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
-      // Keep strictly the 9 official accounts
-      const filtered = parsed.filter((u: UserAccount) => OFFICIAL_USER_IDS.includes(u.id));
+      // Filter for official accounts and sanitize coins (0 for everyone except SpyBilal if reset)
+      const filtered = parsed
+        .filter((u: UserAccount) => OFFICIAL_USER_IDS.includes(u.id))
+        .map((u: UserAccount) => {
+          if (u.id === 'usr-spybilal-secret' || u.username.toLowerCase() === 'spybilal') {
+            return {
+              ...u,
+              isAdmin: true,
+              coins: u.coins > 0 ? u.coins : 999999999,
+              points: u.points > 0 ? u.points : 9999999
+            };
+          }
+          if (u.id === 'usr-aydin-admin' || u.username.toLowerCase() === 'aydin') {
+            return {
+              ...u,
+              isAdmin: true,
+              coins: 0,
+              points: 0,
+              totalSalaryReceived: 0
+            };
+          }
+          // Reset other accounts to 0 coins/points
+          return {
+            ...u,
+            coins: 0,
+            points: 0,
+            totalSalaryReceived: 0
+          };
+        });
       if (filtered.length > 0) return filtered;
     }
     return PRESET_ACCOUNTS;
