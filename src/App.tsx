@@ -16,6 +16,11 @@ import { AuthModal } from './components/AuthModal';
 import { HomeUpdatesFeed } from './components/HomeUpdatesFeed';
 import { soundFx } from './utils/audio';
 import { getStoredUsers, getCurrentUser, saveUsers, updateUserAccount, getMarketItems, saveMarketItems, syncWithServer, setCurrentUserSession } from './utils/storage';
+import {
+  seedFirestoreIfEmpty,
+  subscribeToUsers,
+  subscribeToMarket
+} from './lib/firebase';
 
 export default function App() {
   const [users, setUsers] = useState<UserAccount[]>(() => {
@@ -26,15 +31,16 @@ export default function App() {
 
   const [marketListings, setMarketListings] = useState<MarketItem[]>(() => getMarketItems());
 
-  // Periodic multi-device server sync
+  // Real-time Firebase Firestore cloud sync across all devices
   useEffect(() => {
-    const doSync = async () => {
-      const serverData = await syncWithServer();
-      if (serverData.users && Array.isArray(serverData.users)) {
-        setUsers(serverData.users);
+    seedFirestoreIfEmpty();
+
+    const unsubscribeUsers = subscribeToUsers((freshUsers) => {
+      if (freshUsers && freshUsers.length > 0) {
+        setUsers(freshUsers);
         const activeUserId = localStorage.getItem('icons_paper_fc_current_user_v5');
         if (activeUserId) {
-          const freshMe = serverData.users.find(
+          const freshMe = freshUsers.find(
             (u: UserAccount) =>
               u.id === activeUserId ||
               u.username === activeUserId ||
@@ -46,17 +52,27 @@ export default function App() {
           }
         }
       }
-      if (serverData.market && Array.isArray(serverData.market)) {
-        setMarketListings(serverData.market);
+    });
+
+    const unsubscribeMarket = subscribeToMarket((freshMarket) => {
+      setMarketListings(freshMarket);
+    });
+
+    // Also fallback sync with Express server
+    const doSync = async () => {
+      const serverData = await syncWithServer();
+      if (serverData.users && Array.isArray(serverData.users)) {
+        setUsers(serverData.users);
       }
     };
-
-    // Initial sync
     doSync();
+    const interval = setInterval(doSync, 3000);
 
-    // Poll every 1.5 seconds for real-time multi-device sync
-    const interval = setInterval(doSync, 1500);
-    return () => clearInterval(interval);
+    return () => {
+      unsubscribeUsers();
+      unsubscribeMarket();
+      clearInterval(interval);
+    };
   }, []);
 
   const [homeUpdates, setHomeUpdates] = useState<HomeScreenUpdate[]>(() => {

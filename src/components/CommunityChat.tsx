@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { UserAccount, ChatMessage, PlayerCard } from '../types';
 import { getChatMessages, saveChatMessages } from '../utils/storage';
+import { subscribeToChat, chatCol } from '../lib/firebase';
+import { setDoc, doc } from 'firebase/firestore';
 import { soundFx } from '../utils/audio';
 import { FCPlayerCard } from './FCPlayerCard';
 
@@ -16,10 +18,12 @@ export const CommunityChat: React.FC<CommunityChatProps> = ({ currentUser }) => 
 
   useEffect(() => {
     setMessages(getChatMessages());
-    const interval = setInterval(() => {
-      setMessages(getChatMessages());
-    }, 1500);
-    return () => clearInterval(interval);
+    const unsub = subscribeToChat((freshMessages) => {
+      if (freshMessages) {
+        setMessages(freshMessages);
+      }
+    });
+    return () => unsub();
   }, []);
 
   useEffect(() => {
@@ -46,6 +50,9 @@ export const CommunityChat: React.FC<CommunityChatProps> = ({ currentUser }) => 
     const updated = [...messages, newMessage];
     setMessages(updated);
     saveChatMessages(updated);
+
+    // Save directly to Firestore doc
+    setDoc(doc(chatCol, newMessage.id), newMessage).catch(() => {});
 
     setTextInput('');
     setSelectedShareCard(null);

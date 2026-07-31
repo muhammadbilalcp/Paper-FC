@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { UserAccount, PlayerCard, AuctionItem } from '../types';
 import { FCPlayerCard } from './FCPlayerCard';
 import { getAuctions, saveAuctions } from '../utils/storage';
+import { subscribeToAuctions, auctionsCol } from '../lib/firebase';
+import { setDoc, doc } from 'firebase/firestore';
 import { soundFx } from '../utils/audio';
 
 interface BiddingMarketProps {
@@ -26,10 +28,12 @@ export const BiddingMarket: React.FC<BiddingMarketProps> = ({
 
   useEffect(() => {
     setAuctions(getAuctions());
-    const interval = setInterval(() => {
-      setAuctions(getAuctions());
-    }, 1500);
-    return () => clearInterval(interval);
+    const unsub = subscribeToAuctions((freshAuctions) => {
+      if (freshAuctions) {
+        setAuctions(freshAuctions);
+      }
+    });
+    return () => unsub();
   }, []);
 
   const handleCreateAuction = (e: React.FormEvent) => {

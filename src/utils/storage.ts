@@ -1,5 +1,13 @@
 import { UserAccount, MarketItem, UserSquad, AuctionItem, ChatMessage } from '../types';
 import { INITIAL_PLAYER_DATABASE } from '../data/playersDatabase';
+import {
+  saveUserToFirestore,
+  transferCoinsFirestore,
+  resetDatabaseFirestore,
+  marketCol,
+  auctionsCol
+} from '../lib/firebase';
+import { setDoc, doc } from 'firebase/firestore';
 
 const STORAGE_USERS_KEY = 'icons_paper_fc_users_v5';
 const STORAGE_CURRENT_USER = 'icons_paper_fc_current_user_v5';
@@ -220,6 +228,10 @@ export function updateUserAccount(updated: UserAccount): void {
     localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(users));
   } catch {}
 
+  // Save to Firebase Firestore
+  saveUserToFirestore(updated).catch(() => {});
+
+  // Backup Express API
   fetch('/api/users/update', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -233,6 +245,13 @@ export async function transferCoinsApi(
   coinsAmount: number,
   pointsAmount: number = 0
 ): Promise<{ success: boolean; message: string; allUsers?: UserAccount[] }> {
+  // Try Firebase Firestore transfer first for instant cloud sync
+  const firestoreRes = await transferCoinsFirestore(senderId, receiverUsername, coinsAmount, pointsAmount);
+  if (firestoreRes.success) {
+    return { success: true, message: firestoreRes.message };
+  }
+
+  // Fallback to Express backend transfer endpoint
   try {
     const res = await fetch('/api/users/transfer-coins', {
       method: 'POST',
@@ -254,6 +273,7 @@ export async function transferCoinsApi(
 
 export async function resetDatabaseApi(): Promise<boolean> {
   try {
+    await resetDatabaseFirestore();
     const res = await fetch('/api/admin/reset-database', { method: 'POST' });
     if (!res.ok) return false;
     const data = await res.json();
@@ -283,6 +303,9 @@ export function saveMarketItems(items: MarketItem[]): void {
   try {
     localStorage.setItem(STORAGE_MARKET_KEY, JSON.stringify(items));
   } catch {}
+  for (const item of items) {
+    setDoc(doc(marketCol, item.id), item, { merge: true }).catch(() => {});
+  }
   fetch('/api/market/save', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -307,6 +330,9 @@ export function saveAuctions(auctions: AuctionItem[]): void {
   try {
     localStorage.setItem(STORAGE_AUCTION_KEY, JSON.stringify(auctions));
   } catch {}
+  for (const auc of auctions) {
+    setDoc(doc(auctionsCol, auc.id), auc, { merge: true }).catch(() => {});
+  }
   fetch('/api/auctions/save', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
