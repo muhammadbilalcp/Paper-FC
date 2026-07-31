@@ -312,6 +312,49 @@ export async function transferCoinsFirestore(
   }
 }
 
+// Save or Delete Market Item in Firestore
+export async function saveMarketItemToFirestore(item: MarketItem) {
+  try {
+    await setDoc(doc(marketCol, item.id), item, { merge: true });
+  } catch (err) {
+    console.error('Error saving market item to Firestore:', err);
+  }
+}
+
+export async function deleteMarketItemFromFirestore(itemId: string) {
+  try {
+    await deleteDoc(doc(marketCol, itemId));
+  } catch (err) {
+    console.error('Error deleting market item from Firestore:', err);
+  }
+}
+
+// Save or Delete Auction in Firestore
+export async function saveAuctionToFirestore(auction: AuctionItem) {
+  try {
+    await setDoc(doc(auctionsCol, auction.id), auction, { merge: true });
+  } catch (err) {
+    console.error('Error saving auction to Firestore:', err);
+  }
+}
+
+export async function deleteAuctionFromFirestore(auctionId: string) {
+  try {
+    await deleteDoc(doc(auctionsCol, auctionId));
+  } catch (err) {
+    console.error('Error deleting auction from Firestore:', err);
+  }
+}
+
+// Save Chat Message in Firestore
+export async function sendChatMessageToFirestore(msg: ChatMessage) {
+  try {
+    await setDoc(doc(chatCol, msg.id), msg);
+  } catch (err) {
+    console.error('Error sending chat message to Firestore:', err);
+  }
+}
+
 // Reset Database in Firestore
 export async function resetDatabaseFirestore() {
   try {
