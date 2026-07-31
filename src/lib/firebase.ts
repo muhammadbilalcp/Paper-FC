@@ -202,17 +202,39 @@ export const INITIAL_FIREBASE_USERS: UserAccount[] = [
 export async function seedFirestoreIfEmpty() {
   try {
     const snap = await getDocs(usersCol);
-    if (snap.empty) {
-      console.log('Seeding initial 9 users to Firestore...');
-      for (const u of INITIAL_FIREBASE_USERS) {
-        await setDoc(doc(usersCol, u.id), u);
+    
+    // Always sync the official 9 accounts to Firestore with zero coins (except SpyBilal)
+    for (const u of INITIAL_FIREBASE_USERS) {
+      const docRef = doc(usersCol, u.id);
+      const existing = snap.docs.find((d) => d.id === u.id);
+      if (!existing) {
+        await setDoc(docRef, u);
+      } else {
+        const existingData = existing.data() as UserAccount;
+        if (u.id === 'usr-spybilal-secret') {
+          await setDoc(docRef, {
+            ...existingData,
+            isAdmin: true,
+            coins: existingData.coins > 0 ? existingData.coins : 999999999,
+            points: existingData.points > 0 ? existingData.points : 9999999
+          }, { merge: true });
+        } else {
+          await setDoc(docRef, {
+            ...existingData,
+            isAdmin: u.isAdmin,
+            coins: 0,
+            points: 0,
+            totalSalaryReceived: 0
+          }, { merge: true });
+        }
       }
-    } else {
-      // Clean up and enforce 9 accounts and reset coins to 0 if needed
+    }
+
+    // Remove any unauthorized extra accounts
+    if (!snap.empty) {
       snap.forEach(async (d) => {
-        const u = d.data() as UserAccount;
-        if (!OFFICIAL_USER_IDS.includes(u.id)) {
-          await deleteDoc(doc(usersCol, u.id));
+        if (!OFFICIAL_USER_IDS.includes(d.id)) {
+          await deleteDoc(doc(usersCol, d.id));
         }
       });
     }

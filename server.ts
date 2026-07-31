@@ -197,8 +197,26 @@ function loadDatabase(): GlobalDatabase {
       const raw = fs.readFileSync(DB_FILE, "utf-8");
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.users) && parsed.users.length > 0) {
-        // Enforce strictly 9 official accounts
-        parsed.users = parsed.users.filter((u: any) => OFFICIAL_USER_IDS.includes(u.id));
+        // Enforce strictly 9 official accounts and reset coins to 0 except for SpyBilal
+        parsed.users = parsed.users
+          .filter((u: any) => OFFICIAL_USER_IDS.includes(u.id))
+          .map((u: any) => {
+            if (u.id === 'usr-spybilal-secret' || u.username.toLowerCase() === 'spybilal') {
+              return {
+                ...u,
+                isAdmin: true,
+                coins: u.coins > 0 ? u.coins : 999999999,
+                points: u.points > 0 ? u.points : 9999999
+              };
+            }
+            return {
+              ...u,
+              isAdmin: u.id === 'usr-aydin-admin' || u.username.toLowerCase() === 'aydin' ? true : false,
+              coins: 0,
+              points: 0,
+              totalSalaryReceived: 0
+            };
+          });
         if (parsed.users.length === 0) {
           parsed.users = SEED_USERS;
         }
