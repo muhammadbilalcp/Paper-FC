@@ -416,7 +416,7 @@ export default function App() {
         )}
 
         {activeTab === 'CHAT' && (
-          <CommunityChat currentUser={currentUser} />
+          <CommunityChat currentUser={currentUser} allUsers={users} onUpdateUser={handleUpdateCurrentUser} />
         )}
 
         {activeTab === 'MARKET' && (

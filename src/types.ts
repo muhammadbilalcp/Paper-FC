@@ -112,6 +112,7 @@ export interface UserAccount {
   frontName?: string;
   avatarUrl?: string;
   totalSalaryReceived?: number;
+  friends?: string[];
 }
 
 export interface BidLog {
@@ -144,6 +145,8 @@ export interface ChatMessage {
   sharedCard?: PlayerCard;
   isAdmin?: boolean;
   isSystem?: boolean;
+  recipientUsername?: string;
+  recipientFrontName?: string;
 }
 
 export interface MarketItem {
