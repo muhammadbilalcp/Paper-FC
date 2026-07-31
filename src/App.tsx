@@ -15,14 +15,14 @@ import { AydinAdminPanel } from './components/AydinAdminPanel';
 import { AuthModal } from './components/AuthModal';
 import { HomeUpdatesFeed } from './components/HomeUpdatesFeed';
 import { soundFx } from './utils/audio';
-import { getStoredUsers, saveUsers, updateUserAccount, getMarketItems, saveMarketItems, syncWithServer, setCurrentUserSession } from './utils/storage';
+import { getStoredUsers, getCurrentUser, saveUsers, updateUserAccount, getMarketItems, saveMarketItems, syncWithServer, setCurrentUserSession } from './utils/storage';
 
 export default function App() {
   const [users, setUsers] = useState<UserAccount[]>(() => {
     return getStoredUsers();
   });
 
-  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => getCurrentUser());
 
   const [marketListings, setMarketListings] = useState<MarketItem[]>(() => getMarketItems());
 
@@ -32,8 +32,9 @@ export default function App() {
       const serverData = await syncWithServer();
       if (serverData.users && Array.isArray(serverData.users)) {
         setUsers(serverData.users);
-        if (currentUser) {
-          const freshMe = serverData.users.find((u: UserAccount) => u.id === currentUser.id);
+        const activeUserId = localStorage.getItem('icons_paper_fc_current_user_v4');
+        if (activeUserId) {
+          const freshMe = serverData.users.find((u: UserAccount) => u.id === activeUserId || u.username === activeUserId);
           if (freshMe) {
             setCurrentUser(freshMe);
           }
