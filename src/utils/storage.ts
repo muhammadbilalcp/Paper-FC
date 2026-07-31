@@ -182,6 +182,11 @@ export function saveUsers(users: UserAccount[]): void {
   try {
     localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(users));
   } catch {}
+  fetch('/api/users/save-all', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ users })
+  }).catch(() => {});
 }
 
 export function getCurrentUser(): UserAccount | null {
