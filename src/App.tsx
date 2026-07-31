@@ -32,7 +32,7 @@ export default function App() {
       const serverData = await syncWithServer();
       if (serverData.users && Array.isArray(serverData.users)) {
         setUsers(serverData.users);
-        const activeUserId = localStorage.getItem('icons_paper_fc_current_user_v4');
+        const activeUserId = localStorage.getItem('icons_paper_fc_current_user_v5');
         if (activeUserId) {
           const freshMe = serverData.users.find((u: UserAccount) => u.id === activeUserId || u.username === activeUserId);
           if (freshMe) {
@@ -48,10 +48,10 @@ export default function App() {
     // Initial sync
     doSync();
 
-    // Poll every 2 seconds for real-time multi-device sync
-    const interval = setInterval(doSync, 2000);
+    // Poll every 1.5 seconds for real-time multi-device sync
+    const interval = setInterval(doSync, 1500);
     return () => clearInterval(interval);
-  }, [currentUser?.id]);
+  }, []);
 
   const [homeUpdates, setHomeUpdates] = useState<HomeScreenUpdate[]>(() => {
     try {
@@ -75,9 +75,18 @@ export default function App() {
 
   const [inventorySearch, setInventorySearch] = useState('');
 
-  const handleReloadUsers = () => {
-    const fresh = getStoredUsers();
-    setUsers(fresh);
+  const handleReloadUsers = async () => {
+    const serverData = await syncWithServer();
+    if (serverData.users && Array.isArray(serverData.users)) {
+      setUsers(serverData.users);
+      const activeUserId = localStorage.getItem('icons_paper_fc_current_user_v5');
+      if (activeUserId) {
+        const freshMe = serverData.users.find((u: UserAccount) => u.id === activeUserId || u.username === activeUserId);
+        if (freshMe) {
+          setCurrentUser(freshMe);
+        }
+      }
+    }
   };
 
   useEffect(() => {
@@ -474,10 +483,12 @@ export default function App() {
         />
       )}
 
-      {isProfileOpen && (
+      {isProfileOpen && currentUser && (
         <UserProfileModal
           currentUser={currentUser}
+          allUsers={users}
           onUpdateUser={handleUpdateCurrentUser}
+          onRefreshUsers={handleReloadUsers}
           onClose={() => setIsProfileOpen(false)}
         />
       )}

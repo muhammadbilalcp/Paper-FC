@@ -1,10 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { UserAccount } from '../types';
 import { soundFx } from '../utils/audio';
+import { transferCoinsApi } from '../utils/storage';
 
 interface UserProfileModalProps {
   currentUser: UserAccount;
+  allUsers?: UserAccount[];
   onUpdateUser: (updatedUser: UserAccount) => void;
+  onRefreshUsers?: () => void;
   onClose: () => void;
 }
 
@@ -19,7 +22,9 @@ const PRESET_AVATARS = [
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   currentUser,
+  allUsers = [],
   onUpdateUser,
+  onRefreshUsers,
   onClose
 }) => {
   const [frontName, setFrontName] = useState(currentUser.frontName || currentUser.username);
@@ -27,6 +32,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [customAvatarInput, setCustomAvatarInput] = useState('');
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [uploadError, setUploadError] = useState('');
+
+  // Transfer Coins State
+  const [targetRecipient, setTargetRecipient] = useState('');
+  const [transferAmount, setTransferAmount] = useState<number>(100000);
+  const [transferStatus, setTransferStatus] = useState<{ msg: string; isError: boolean } | null>(null);
+  const [isSending, setIsSending] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -101,6 +112,35 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       setSavedSuccess(false);
       onClose();
     }, 800);
+  };
+
+  const handleSendCoins = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTransferStatus(null);
+    if (!targetRecipient.trim()) {
+      setTransferStatus({ msg: 'Please select or enter recipient username.', isError: true });
+      return;
+    }
+    if (transferAmount <= 0) {
+      setTransferStatus({ msg: 'Please enter a valid amount of FC Coins.', isError: true });
+      return;
+    }
+    if (!currentUser.isAdmin && currentUser.coins < transferAmount) {
+      setTransferStatus({ msg: `Insufficient FC Coins! You have 🪙 ${currentUser.coins.toLocaleString()}`, isError: true });
+      return;
+    }
+
+    setIsSending(true);
+    const res = await transferCoinsApi(currentUser.id, targetRecipient.trim(), transferAmount);
+    setIsSending(false);
+
+    if (res.success) {
+      soundFx.playCoinSound();
+      setTransferStatus({ msg: res.message, isError: false });
+      if (onRefreshUsers) onRefreshUsers();
+    } else {
+      setTransferStatus({ msg: res.message, isError: true });
+    }
   };
 
   return (
@@ -261,6 +301,69 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             SAVE PROFILE SETTINGS ➔
           </button>
         </form>
+
+        {/* Transfer FC Coins to Player Account Section */}
+        <div className="mt-6 pt-6 border-t border-white/10">
+          <h3 className="text-xs font-black text-amber-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+            <span>🪙 SEND FC COINS TO FRIEND</span>
+          </h3>
+
+          <form onSubmit={handleSendCoins} className="space-y-3 bg-black/50 p-4 rounded-2xl border border-amber-500/30">
+            <div>
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
+                RECIPIENT PLAYER ACCOUNT
+              </label>
+              <select
+                value={targetRecipient}
+                onChange={(e) => setTargetRecipient(e.target.value)}
+                className="w-full bg-neutral-900 border border-white/20 rounded-xl px-3 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+              >
+                <option value="">Select player account...</option>
+                {allUsers
+                  .filter((u) => u.username !== currentUser.username)
+                  .map((u) => (
+                    <option key={u.id} value={u.username}>
+                      @{u.username} ({u.frontName || u.username}) - Bal: 🪙 {u.coins.toLocaleString()}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
+                AMOUNT TO SEND (FC COINS 🪙)
+              </label>
+              <input
+                type="number"
+                min="1000"
+                step="1000"
+                value={transferAmount}
+                onChange={(e) => setTransferAmount(Number(e.target.value))}
+                className="w-full bg-neutral-900 border border-white/20 rounded-xl px-3 py-2 text-amber-300 font-mono font-bold text-sm focus:outline-none focus:border-amber-400"
+              />
+            </div>
+
+            {transferStatus && (
+              <div
+                className={`text-xs p-2.5 rounded-xl font-mono ${
+                  transferStatus.isError
+                    ? 'bg-red-500/20 border border-red-500/50 text-red-300'
+                    : 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-300'
+                }`}
+              >
+                {transferStatus.msg}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isSending}
+              className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition cursor-pointer disabled:opacity-50"
+            >
+              {isSending ? 'SENDING COINS...' : '💸 TRANSFER COINS NOW'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

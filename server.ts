@@ -49,6 +49,7 @@ const DEFAULT_EMPTY_SQUAD = {
   bench: []
 };
 
+// Clean default seed users with 0 coins for non-admins
 const SEED_USERS = [
   {
     id: 'usr-aydin-admin',
@@ -199,7 +200,7 @@ function loadDatabase(): GlobalDatabase {
         id: 'chat-welcome',
         senderUsername: 'Aydin',
         senderFrontName: 'Master Admin Aydin',
-        text: 'Welcome to Icons Paper FC! Squad chat is live across all devices. ⚽',
+        text: 'Welcome to Icons Paper FC! Multi-device central server sync active. ⚽',
         timestamp: Date.now(),
         isAdmin: true
       }
@@ -220,7 +221,7 @@ function saveDatabase(db: GlobalDatabase) {
   }
 }
 
-// Memory cache
+// Memory state
 let dbState: GlobalDatabase = loadDatabase();
 
 // --- API ROUTES ---
@@ -247,10 +248,84 @@ app.post("/api/users/update", (req, res) => {
   res.json({ status: "ok", user, allUsers: dbState.users });
 });
 
+// Transfer coins or cash directly between accounts
+app.post("/api/users/transfer-coins", (req, res) => {
+  const { senderId, receiverUsername, coinsAmount, pointsAmount } = req.body;
+  const coins = Math.max(0, Number(coinsAmount) || 0);
+  const points = Math.max(0, Number(pointsAmount) || 0);
+
+  const senderIdx = dbState.users.findIndex(
+    (u) => u.id === senderId || u.username.toLowerCase() === (senderId || "").toLowerCase()
+  );
+
+  const cleanTarget = (receiverUsername || "").trim().toLowerCase();
+  const receiverIdx = dbState.users.findIndex(
+    (u) =>
+      u.username.toLowerCase() === cleanTarget ||
+      (u.frontName || "").toLowerCase() === cleanTarget ||
+      (u.frontName || "").toLowerCase().includes(cleanTarget)
+  );
+
+  if (senderIdx === -1 || receiverIdx === -1) {
+    return res.status(400).json({ error: "Sender or Receiver account not found!" });
+  }
+
+  const sender = dbState.users[senderIdx];
+  const receiver = dbState.users[receiverIdx];
+
+  if (!sender.isAdmin) {
+    if (coins > sender.coins) {
+      return res.status(400).json({ error: "Insufficient FC Coins balance!" });
+    }
+    if (points > sender.points) {
+      return res.status(400).json({ error: "Insufficient Paper Cash balance!" });
+    }
+    sender.coins -= coins;
+    sender.points -= points;
+  }
+
+  receiver.coins += coins;
+  receiver.points += points;
+
+  saveDatabase(dbState);
+  return res.json({ status: "ok", sender, receiver, allUsers: dbState.users });
+});
+
+// Reset non-admin account balances to 0 cleanly
+app.post("/api/admin/reset-coins", (req, res) => {
+  dbState.users = dbState.users.map((u) => {
+    if (u.isAdmin) return u;
+    return { ...u, coins: 0, points: 150 };
+  });
+  saveDatabase(dbState);
+  res.json({ status: "ok", allUsers: dbState.users });
+});
+
+// Complete Database Reset endpoint
+app.post("/api/admin/reset-database", (req, res) => {
+  dbState = {
+    users: SEED_USERS,
+    market: [],
+    auctions: [],
+    chat: [
+      {
+        id: `chat-welcome-${Date.now()}`,
+        senderUsername: 'Aydin',
+        senderFrontName: 'Master Admin Aydin',
+        text: 'Database cleanly reset! Everyone has 0 starting coins. Multi-device sync ready. ⚽',
+        timestamp: Date.now(),
+        isAdmin: true
+      }
+    ]
+  };
+  saveDatabase(dbState);
+  res.json({ status: "ok", db: dbState });
+});
+
 // Bulk update users endpoint
 app.post("/api/users/save-all", (req, res) => {
   const { users } = req.body;
-  if (Array.isArray(users)) {
+  if (Array.isArray(users) && users.length > 0) {
     dbState.users = users;
     saveDatabase(dbState);
   }
@@ -265,6 +340,63 @@ app.post("/api/market/save", (req, res) => {
     saveDatabase(dbState);
   }
   res.json({ status: "ok", market: dbState.market });
+});
+
+// Market buy
+app.post("/api/market/buy", (req, res) => {
+  const { buyerId, itemId } = req.body;
+  const itemIdx = dbState.market.findIndex((m) => m.id === itemId);
+  if (itemIdx === -1) {
+    return res.status(404).json({ error: "Card listing no longer available on market!" });
+  }
+  const item = dbState.market[itemIdx];
+  const buyerIdx = dbState.users.findIndex((u) => u.id === buyerId || u.username === buyerId);
+  if (buyerIdx === -1) {
+    return res.status(404).json({ error: "Buyer account not found!" });
+  }
+  const buyer = dbState.users[buyerIdx];
+  if (buyer.coins < item.priceCoins) {
+    return res.status(400).json({ error: "Insufficient FC Coins!" });
+  }
+
+  // Deduct coins & add card
+  buyer.coins -= item.priceCoins;
+  buyer.inventory.push(item.card);
+
+  // Credit seller
+  const sellerIdx = dbState.users.findIndex((u) => u.username === item.sellerUsername);
+  if (sellerIdx !== -1) {
+    dbState.users[sellerIdx].coins += item.priceCoins;
+  }
+
+  // Remove item
+  dbState.market.splice(itemIdx, 1);
+
+  saveDatabase(dbState);
+  res.json({ status: "ok", buyer, market: dbState.market, allUsers: dbState.users });
+});
+
+// Market list
+app.post("/api/market/list", (req, res) => {
+  const { sellerUsername, card, priceCoins } = req.body;
+  const sellerIdx = dbState.users.findIndex((u) => u.username === sellerUsername);
+  if (sellerIdx === -1) {
+    return res.status(404).json({ error: "Seller account not found!" });
+  }
+  const seller = dbState.users[sellerIdx];
+  seller.inventory = seller.inventory.filter((c: any) => c.id !== card.id);
+
+  const newItem = {
+    id: `mkt-${Date.now()}`,
+    sellerUsername,
+    card,
+    priceCoins: Number(priceCoins),
+    listedAt: Date.now()
+  };
+  dbState.market.unshift(newItem);
+
+  saveDatabase(dbState);
+  res.json({ status: "ok", seller, market: dbState.market, allUsers: dbState.users });
 });
 
 // Save auctions

@@ -1,11 +1,11 @@
 import { UserAccount, MarketItem, UserSquad, AuctionItem, ChatMessage } from '../types';
 import { INITIAL_PLAYER_DATABASE } from '../data/playersDatabase';
 
-const STORAGE_USERS_KEY = 'icons_paper_fc_users_v4';
-const STORAGE_CURRENT_USER = 'icons_paper_fc_current_user_v4';
-const STORAGE_MARKET_KEY = 'icons_paper_fc_market_v4';
-const STORAGE_AUCTION_KEY = 'icons_paper_fc_auctions_v4';
-const STORAGE_CHAT_KEY = 'icons_paper_fc_chat_v4';
+const STORAGE_USERS_KEY = 'icons_paper_fc_users_v5';
+const STORAGE_CURRENT_USER = 'icons_paper_fc_current_user_v5';
+const STORAGE_MARKET_KEY = 'icons_paper_fc_market_v5';
+const STORAGE_AUCTION_KEY = 'icons_paper_fc_auctions_v5';
+const STORAGE_CHAT_KEY = 'icons_paper_fc_chat_v5';
 
 const DEFAULT_EMPTY_SQUAD: UserSquad = {
   formation: '4-3-3',
@@ -170,7 +170,8 @@ export function getStoredUsers(): UserAccount[] {
   try {
     const raw = localStorage.getItem(STORAGE_USERS_KEY);
     if (!raw) return PRESET_ACCOUNTS;
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : PRESET_ACCOUNTS;
   } catch {
     return PRESET_ACCOUNTS;
   }
@@ -180,14 +181,7 @@ export function saveUsers(users: UserAccount[]): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(users));
-    fetch('/api/users/save-all', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ users })
-    }).catch(() => {});
-  } catch (err) {
-    console.error('Failed saving users to localStorage', err);
-  }
+  } catch {}
 }
 
 export function getCurrentUser(): UserAccount | null {
@@ -200,14 +194,18 @@ export function getCurrentUser(): UserAccount | null {
   return found || null;
 }
 
-export function setCurrentUserSession(user: UserAccount): void {
+export function setCurrentUserSession(user: UserAccount | null): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_CURRENT_USER, user.id);
+  if (!user) {
+    localStorage.removeItem(STORAGE_CURRENT_USER);
+  } else {
+    localStorage.setItem(STORAGE_CURRENT_USER, user.id);
+  }
 }
 
 export function updateUserAccount(updated: UserAccount): void {
   const users = getStoredUsers();
-  const idx = users.findIndex((u) => u.id === updated.id);
+  const idx = users.findIndex((u) => u.id === updated.id || u.username === updated.username);
   if (idx !== -1) {
     users[idx] = updated;
   } else {
@@ -222,6 +220,45 @@ export function updateUserAccount(updated: UserAccount): void {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(updated)
   }).catch(() => {});
+}
+
+export async function transferCoinsApi(
+  senderId: string,
+  receiverUsername: string,
+  coinsAmount: number,
+  pointsAmount: number = 0
+): Promise<{ success: boolean; message: string; allUsers?: UserAccount[] }> {
+  try {
+    const res = await fetch('/api/users/transfer-coins', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ senderId, receiverUsername, coinsAmount, pointsAmount })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      return { success: false, message: data.error || 'Transfer failed' };
+    }
+    if (data.allUsers) {
+      saveUsers(data.allUsers);
+    }
+    return { success: true, message: `Successfully sent 🪙 ${coinsAmount.toLocaleString()} FC Coins to @${receiverUsername}!`, allUsers: data.allUsers };
+  } catch (err: any) {
+    return { success: false, message: err?.message || 'Network error during coin transfer.' };
+  }
+}
+
+export async function resetDatabaseApi(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/admin/reset-database', { method: 'POST' });
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (data.db && Array.isArray(data.db.users)) {
+      saveUsers(data.db.users);
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // Marketplace storage
