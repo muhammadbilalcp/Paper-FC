@@ -61,8 +61,21 @@ export default function App() {
     // Also fallback sync with Express server
     const doSync = async () => {
       const serverData = await syncWithServer();
-      if (serverData.users && Array.isArray(serverData.users)) {
+      if (serverData.users && Array.isArray(serverData.users) && serverData.users.length > 0) {
         setUsers(serverData.users);
+        const activeUserId = localStorage.getItem('icons_paper_fc_current_user_v5');
+        if (activeUserId) {
+          const freshMe = serverData.users.find(
+            (u: UserAccount) =>
+              u.id === activeUserId ||
+              u.username === activeUserId ||
+              u.username.toLowerCase() === activeUserId.toLowerCase() ||
+              (u.frontName && u.frontName.toLowerCase() === activeUserId.toLowerCase())
+          );
+          if (freshMe) {
+            setCurrentUser(freshMe);
+          }
+        }
       }
     };
     doSync();

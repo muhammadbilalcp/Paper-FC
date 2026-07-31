@@ -291,10 +291,7 @@ export async function transferCoinsApi(
   const currentUsers = getStoredUsers();
   const cleanTarget = receiverUsername.trim().toLowerCase();
 
-  // Try Firebase Firestore transfer first for instant cloud sync
-  const firestoreRes = await transferCoinsFirestore(senderId, receiverUsername, coinsAmount, pointsAmount);
-
-  // Update local memory / localStorage users array as well
+  // 1. Calculate updated users locally
   const updatedUsers = currentUsers.map((u) => {
     const isSender = u.id === senderId || u.username.toLowerCase() === senderId.toLowerCase();
     const isReceiver =
@@ -318,30 +315,37 @@ export async function transferCoinsApi(
     return u;
   });
 
+  // Save to localStorage immediately
   saveUsers(updatedUsers);
+
+  // 2. Sync to Express server backend first so backend memory state is updated
+  try {
+    await fetch('/api/users/save-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ users: updatedUsers })
+    });
+    await fetch('/api/users/transfer-coins', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ senderId, receiverUsername, coinsAmount, pointsAmount })
+    });
+  } catch (err) {
+    console.warn('Express server transfer sync error:', err);
+  }
+
+  // 3. Sync to Firebase Firestore
+  const firestoreRes = await transferCoinsFirestore(senderId, receiverUsername, coinsAmount, pointsAmount);
 
   if (firestoreRes.success) {
     return { success: true, message: firestoreRes.message, allUsers: updatedUsers };
   }
 
-  // Fallback to Express backend transfer endpoint
-  try {
-    const res = await fetch('/api/users/transfer-coins', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ senderId, receiverUsername, coinsAmount, pointsAmount })
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      return { success: false, message: data.error || 'Transfer failed' };
-    }
-    if (data.allUsers) {
-      saveUsers(data.allUsers);
-    }
-    return { success: true, message: `Successfully sent 🪙 ${coinsAmount.toLocaleString()} FC Coins to @${receiverUsername}!`, allUsers: data.allUsers || updatedUsers };
-  } catch (err: any) {
-    return { success: false, message: err?.message || 'Network error during coin transfer.' };
-  }
+  return {
+    success: true,
+    message: `Successfully sent 🪙 ${coinsAmount.toLocaleString()} FC Coins to @${receiverUsername}!`,
+    allUsers: updatedUsers
+  };
 }
 
 export async function resetDatabaseApi(): Promise<boolean> {

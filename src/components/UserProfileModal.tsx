@@ -182,6 +182,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     if (res.success) {
       soundFx.playCoinSound();
       setTransferStatus({ msg: res.message, isError: false });
+      if (res.allUsers) {
+        const updatedMe = res.allUsers.find(
+          (u) => u.id === currentUser.id || u.username.toLowerCase() === currentUser.username.toLowerCase()
+        );
+        if (updatedMe) {
+          onUpdateUser(updatedMe);
+        }
+      }
       if (onRefreshUsers) onRefreshUsers();
     } else {
       setTransferStatus({ msg: res.message, isError: true });
