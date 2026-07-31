@@ -44,6 +44,18 @@ const DEFAULT_SQUAD: UserSquad = {
   ]
 };
 
+export const OFFICIAL_USER_IDS = [
+  'usr-aydin-admin',
+  'usr-faheem',
+  'usr-hamad',
+  'usr-rinshan',
+  'usr-razan',
+  'usr-insaf',
+  'usr-aban',
+  'usr-hashid',
+  'usr-spybilal-secret'
+];
+
 export const PRESET_ACCOUNTS: UserAccount[] = [
   {
     id: 'usr-aydin-admin',
@@ -51,13 +63,13 @@ export const PRESET_ACCOUNTS: UserAccount[] = [
     frontName: 'Master Admin Aydin',
     passwordHash: 'aydin123',
     isAdmin: true,
-    coins: 999999999,
-    points: 9999999,
+    coins: 0,
+    points: 0,
     inventory: [...INITIAL_PLAYER_DATABASE],
     squad: DEFAULT_SQUAD,
     packsOpened: 250,
     createdAt: Date.now() - 10000000,
-    totalSalaryReceived: 100000000
+    totalSalaryReceived: 0
   },
   {
     id: 'usr-faheem',
@@ -66,7 +78,7 @@ export const PRESET_ACCOUNTS: UserAccount[] = [
     passwordHash: 'faheemhananandfarhan67',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD,
     packsOpened: 0,
@@ -80,7 +92,7 @@ export const PRESET_ACCOUNTS: UserAccount[] = [
     passwordHash: 'Hamad67.com',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD,
     packsOpened: 0,
@@ -94,7 +106,7 @@ export const PRESET_ACCOUNTS: UserAccount[] = [
     passwordHash: 'nonchalantrinchu',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD,
     packsOpened: 0,
@@ -108,7 +120,7 @@ export const PRESET_ACCOUNTS: UserAccount[] = [
     passwordHash: 'Brazan67',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD,
     packsOpened: 0,
@@ -122,7 +134,7 @@ export const PRESET_ACCOUNTS: UserAccount[] = [
     passwordHash: 'yoichi isagi',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD,
     packsOpened: 0,
@@ -136,7 +148,7 @@ export const PRESET_ACCOUNTS: UserAccount[] = [
     passwordHash: 'Abanthegk',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD,
     packsOpened: 0,
@@ -150,7 +162,7 @@ export const PRESET_ACCOUNTS: UserAccount[] = [
     passwordHash: 'AcidBase76',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD,
     packsOpened: 0,
@@ -163,13 +175,13 @@ export const PRESET_ACCOUNTS: UserAccount[] = [
     frontName: 'Agent SpyBilal',
     passwordHash: '223879',
     isAdmin: true,
-    coins: 999999999,
-    points: 9999999,
+    coins: 0,
+    points: 0,
     inventory: [...INITIAL_PLAYER_DATABASE],
     squad: DEFAULT_SQUAD,
     packsOpened: 500,
     createdAt: Date.now() - 1000000,
-    totalSalaryReceived: 99999999
+    totalSalaryReceived: 0
   }
 ];
 
@@ -179,7 +191,12 @@ export function getStoredUsers(): UserAccount[] {
     const raw = localStorage.getItem(STORAGE_USERS_KEY);
     if (!raw) return PRESET_ACCOUNTS;
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : PRESET_ACCOUNTS;
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      // Keep strictly the 9 official accounts
+      const filtered = parsed.filter((u: UserAccount) => OFFICIAL_USER_IDS.includes(u.id));
+      if (filtered.length > 0) return filtered;
+    }
+    return PRESET_ACCOUNTS;
   } catch {
     return PRESET_ACCOUNTS;
   }

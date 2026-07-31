@@ -56,7 +56,19 @@ const DEFAULT_EMPTY_SQUAD = {
   bench: []
 };
 
-// Seed accounts with 0 coins for non-admin users
+// Seed accounts with 0 coins for all users and strictly 9 official accounts
+export const OFFICIAL_USER_IDS = [
+  'usr-aydin-admin',
+  'usr-faheem',
+  'usr-hamad',
+  'usr-rinshan',
+  'usr-razan',
+  'usr-insaf',
+  'usr-aban',
+  'usr-hashid',
+  'usr-spybilal-secret'
+];
+
 export const INITIAL_FIREBASE_USERS: UserAccount[] = [
   {
     id: 'usr-aydin-admin',
@@ -64,13 +76,13 @@ export const INITIAL_FIREBASE_USERS: UserAccount[] = [
     frontName: 'Master Admin Aydin',
     passwordHash: 'aydin123',
     isAdmin: true,
-    coins: 999999999,
-    points: 9999999,
+    coins: 0,
+    points: 0,
     inventory: [...INITIAL_PLAYER_DATABASE],
     squad: DEFAULT_SQUAD as any,
     packsOpened: 250,
     createdAt: Date.now() - 10000000,
-    totalSalaryReceived: 100000000
+    totalSalaryReceived: 0
   },
   {
     id: 'usr-faheem',
@@ -79,7 +91,7 @@ export const INITIAL_FIREBASE_USERS: UserAccount[] = [
     passwordHash: 'faheemhananandfarhan67',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD as any,
     packsOpened: 0,
@@ -93,7 +105,7 @@ export const INITIAL_FIREBASE_USERS: UserAccount[] = [
     passwordHash: 'Hamad67.com',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD as any,
     packsOpened: 0,
@@ -107,7 +119,7 @@ export const INITIAL_FIREBASE_USERS: UserAccount[] = [
     passwordHash: 'nonchalantrinchu',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD as any,
     packsOpened: 0,
@@ -121,7 +133,7 @@ export const INITIAL_FIREBASE_USERS: UserAccount[] = [
     passwordHash: 'Brazan67',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD as any,
     packsOpened: 0,
@@ -135,7 +147,7 @@ export const INITIAL_FIREBASE_USERS: UserAccount[] = [
     passwordHash: 'yoichi isagi',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD as any,
     packsOpened: 0,
@@ -149,7 +161,7 @@ export const INITIAL_FIREBASE_USERS: UserAccount[] = [
     passwordHash: 'Abanthegk',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD as any,
     packsOpened: 0,
@@ -163,7 +175,7 @@ export const INITIAL_FIREBASE_USERS: UserAccount[] = [
     passwordHash: 'AcidBase76',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD as any,
     packsOpened: 0,
@@ -176,25 +188,33 @@ export const INITIAL_FIREBASE_USERS: UserAccount[] = [
     frontName: 'Agent SpyBilal',
     passwordHash: '223879',
     isAdmin: true,
-    coins: 999999999,
-    points: 9999999,
+    coins: 0,
+    points: 0,
     inventory: [...INITIAL_PLAYER_DATABASE],
     squad: DEFAULT_SQUAD as any,
     packsOpened: 500,
     createdAt: Date.now() - 1000000,
-    totalSalaryReceived: 99999999
+    totalSalaryReceived: 0
   }
 ];
 
-// Helper to seed Firestore if empty
+// Helper to seed or sanitize Firestore users
 export async function seedFirestoreIfEmpty() {
   try {
     const snap = await getDocs(usersCol);
     if (snap.empty) {
-      console.log('Seeding initial users to Firestore...');
+      console.log('Seeding initial 9 users to Firestore...');
       for (const u of INITIAL_FIREBASE_USERS) {
         await setDoc(doc(usersCol, u.id), u);
       }
+    } else {
+      // Clean up and enforce 9 accounts and reset coins to 0 if needed
+      snap.forEach(async (d) => {
+        const u = d.data() as UserAccount;
+        if (!OFFICIAL_USER_IDS.includes(u.id)) {
+          await deleteDoc(doc(usersCol, u.id));
+        }
+      });
     }
   } catch (err) {
     console.error('Firestore seed error:', err);

@@ -49,7 +49,19 @@ const DEFAULT_EMPTY_SQUAD = {
   bench: []
 };
 
-// Clean default seed users with 0 coins for non-admins
+const OFFICIAL_USER_IDS = [
+  'usr-aydin-admin',
+  'usr-faheem',
+  'usr-hamad',
+  'usr-rinshan',
+  'usr-razan',
+  'usr-insaf',
+  'usr-aban',
+  'usr-hashid',
+  'usr-spybilal-secret'
+];
+
+// Clean default seed users with 0 coins for all 9 official accounts
 const SEED_USERS = [
   {
     id: 'usr-aydin-admin',
@@ -57,13 +69,13 @@ const SEED_USERS = [
     frontName: 'Master Admin Aydin',
     passwordHash: 'aydin123',
     isAdmin: true,
-    coins: 999999999,
-    points: 9999999,
+    coins: 0,
+    points: 0,
     inventory: [...INITIAL_PLAYER_DATABASE],
     squad: DEFAULT_SQUAD,
     packsOpened: 250,
     createdAt: Date.now() - 10000000,
-    totalSalaryReceived: 100000000
+    totalSalaryReceived: 0
   },
   {
     id: 'usr-faheem',
@@ -72,7 +84,7 @@ const SEED_USERS = [
     passwordHash: 'faheemhananandfarhan67',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD,
     packsOpened: 0,
@@ -86,7 +98,7 @@ const SEED_USERS = [
     passwordHash: 'Hamad67.com',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD,
     packsOpened: 0,
@@ -100,7 +112,7 @@ const SEED_USERS = [
     passwordHash: 'nonchalantrinchu',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD,
     packsOpened: 0,
@@ -114,7 +126,7 @@ const SEED_USERS = [
     passwordHash: 'Brazan67',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD,
     packsOpened: 0,
@@ -128,7 +140,7 @@ const SEED_USERS = [
     passwordHash: 'yoichi isagi',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD,
     packsOpened: 0,
@@ -142,7 +154,7 @@ const SEED_USERS = [
     passwordHash: 'Abanthegk',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD,
     packsOpened: 0,
@@ -156,7 +168,7 @@ const SEED_USERS = [
     passwordHash: 'AcidBase76',
     isAdmin: false,
     coins: 0,
-    points: 150,
+    points: 0,
     inventory: [],
     squad: DEFAULT_EMPTY_SQUAD,
     packsOpened: 0,
@@ -169,13 +181,13 @@ const SEED_USERS = [
     frontName: 'Agent SpyBilal',
     passwordHash: '223879',
     isAdmin: true,
-    coins: 999999999,
-    points: 9999999,
+    coins: 0,
+    points: 0,
     inventory: [...INITIAL_PLAYER_DATABASE],
     squad: DEFAULT_SQUAD,
     packsOpened: 500,
     createdAt: Date.now() - 1000000,
-    totalSalaryReceived: 99999999
+    totalSalaryReceived: 0
   }
 ];
 
@@ -185,6 +197,11 @@ function loadDatabase(): GlobalDatabase {
       const raw = fs.readFileSync(DB_FILE, "utf-8");
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.users) && parsed.users.length > 0) {
+        // Enforce strictly 9 official accounts
+        parsed.users = parsed.users.filter((u: any) => OFFICIAL_USER_IDS.includes(u.id));
+        if (parsed.users.length === 0) {
+          parsed.users = SEED_USERS;
+        }
         return parsed;
       }
     }

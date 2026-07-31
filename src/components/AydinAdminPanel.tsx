@@ -482,6 +482,23 @@ export const AydinAdminPanel: React.FC<AydinAdminPanelProps> = ({
             >
               🪙 GIVE 5M COINS TO ALL
             </button>
+            <button
+              onClick={() => {
+                if (confirm('Are you sure you want to reset ALL users money and coins to ZERO?')) {
+                  soundFx.playClick();
+                  const updated = allUsers.map((u) => ({ ...u, coins: 0, points: 0, totalSalaryReceived: 0 }));
+                  if (onUpdateAllUsers) {
+                    onUpdateAllUsers(updated);
+                  } else {
+                    updated.forEach((u) => onUpdateUser(u));
+                  }
+                  alert('Reset money and coins for ALL 9 accounts to ZERO!');
+                }
+              }}
+              className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow transition cursor-pointer"
+            >
+              🧹 RESET ALL MONEY TO ZERO
+            </button>
           </div>
         </div>
 

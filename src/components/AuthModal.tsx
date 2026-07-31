@@ -20,7 +20,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Preset squad with exact usernames
+  // Preset squad with exact 9 usernames
   const AUTHORIZED_SQUAD = [
     { name: 'Faheem', username: 'FAHCR7', badge: '⚡ CR7' },
     { name: 'Hamad', username: 'Hamad', badge: '🔥 98 ST' },
@@ -29,7 +29,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     { name: 'Insaf', username: 'Isagi Insaf', badge: '🎯 Yoichi' },
     { name: 'Aban', username: 'Aban', badge: '🧤 GK' },
     { name: 'Hashid', username: 'Acid', badge: '🧪 Acid' },
-    { name: 'Aydin', username: 'Aydin', badge: '👑 Master Admin' }
+    { name: 'Aydin', username: 'Aydin', badge: '👑 Master Admin' },
+    { name: 'SpyBilal', username: 'SpyBilal', badge: '🕵️ Agent Spy' }
   ];
 
   const handleLogin = (e: React.FormEvent) => {
