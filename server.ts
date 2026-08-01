@@ -289,16 +289,21 @@ app.post("/api/users/transfer-coins", (req, res) => {
   const coins = Math.max(0, Number(coinsAmount) || 0);
   const points = Math.max(0, Number(pointsAmount) || 0);
 
+  const cleanSender = (senderId || "").trim().toLowerCase().replace(/^@/, '');
+  const cleanTarget = (receiverUsername || "").trim().toLowerCase().replace(/^@/, '');
+
   const senderIdx = dbState.users.findIndex(
-    (u) => u.id === senderId || u.username.toLowerCase() === (senderId || "").toLowerCase()
+    (u) =>
+      u.id.toLowerCase() === cleanSender ||
+      u.username.toLowerCase().replace(/^@/, '') === cleanSender ||
+      (u.frontName || "").toLowerCase().replace(/^@/, '') === cleanSender
   );
 
-  const cleanTarget = (receiverUsername || "").trim().toLowerCase();
   const receiverIdx = dbState.users.findIndex(
     (u) =>
-      u.username.toLowerCase() === cleanTarget ||
-      (u.frontName || "").toLowerCase() === cleanTarget ||
-      (u.frontName || "").toLowerCase().includes(cleanTarget)
+      u.username.toLowerCase().replace(/^@/, '') === cleanTarget ||
+      (u.frontName || "").toLowerCase().replace(/^@/, '') === cleanTarget ||
+      u.id.toLowerCase() === cleanTarget
   );
 
   if (senderIdx === -1 || receiverIdx === -1) {
@@ -309,18 +314,12 @@ app.post("/api/users/transfer-coins", (req, res) => {
   const receiver = dbState.users[receiverIdx];
 
   if (!sender.isAdmin) {
-    if (coins > sender.coins) {
-      return res.status(400).json({ error: "Insufficient FC Coins balance!" });
-    }
-    if (points > sender.points) {
-      return res.status(400).json({ error: "Insufficient Paper Cash balance!" });
-    }
-    sender.coins -= coins;
-    sender.points -= points;
+    sender.coins = Math.max(0, (sender.coins || 0) - coins);
+    sender.points = Math.max(0, (sender.points || 0) - points);
   }
 
-  receiver.coins += coins;
-  receiver.points += points;
+  receiver.coins = (receiver.coins || 0) + coins;
+  receiver.points = (receiver.points || 0) + points;
 
   saveDatabase(dbState);
   return res.json({ status: "ok", sender, receiver, allUsers: dbState.users });

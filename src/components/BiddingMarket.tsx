@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { UserAccount, PlayerCard, AuctionItem } from '../types';
 import { FCPlayerCard } from './FCPlayerCard';
-import { getAuctions, saveAuctions } from '../utils/storage';
-import { subscribeToAuctions, auctionsCol } from '../lib/firebase';
-import { setDoc, doc } from 'firebase/firestore';
+import { getAuctions, saveAuctions, saveUsers } from '../utils/storage';
+import { subscribeToAuctions, saveUserToFirestore } from '../lib/firebase';
 import { soundFx } from '../utils/audio';
 
 interface BiddingMarketProps {
@@ -24,17 +23,143 @@ export const BiddingMarket: React.FC<BiddingMarketProps> = ({
   const [durationHours, setDurationHours] = useState<number>(24);
   const [isCreatingAuction, setIsCreatingAuction] = useState<boolean>(false);
   const [customBidAmount, setCustomBidAmount] = useState<Record<string, number>>({});
-  const [activeTab, setActiveTab] = useState<'LIVE_AUCTIONS' | 'MY_LISTINGS'>('LIVE_AUCTIONS');
+  const [activeTab, setActiveTab] = useState<'LIVE_AUCTIONS' | 'MY_LISTINGS' | 'HISTORY'>('LIVE_AUCTIONS');
+  const [nowTick, setNowTick] = useState<number>(Date.now());
 
+  // Helper to persist updated user database without changing active currentUser session
+  const persistUsers = (usersList: UserAccount[]) => {
+    saveUsers(usersList);
+    fetch('/api/users/save-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ users: usersList })
+    }).catch(() => {});
+    for (const u of usersList) {
+      saveUserToFirestore(u).catch(() => {});
+    }
+  };
+
+  // 1. Load & subscribe to live auctions
   useEffect(() => {
     setAuctions(getAuctions());
+
     const unsub = subscribeToAuctions((freshAuctions) => {
-      if (freshAuctions) {
-        setAuctions(freshAuctions);
+      if (freshAuctions && Array.isArray(freshAuctions)) {
+        setAuctions((prev) => {
+          const map = new Map<string, AuctionItem>();
+          for (const a of prev) if (a && a.id) map.set(a.id, a);
+          for (const a of freshAuctions) if (a && a.id) map.set(a.id, a);
+          const merged = Array.from(map.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+          saveAuctions(merged);
+          return merged;
+        });
       }
     });
-    return () => unsub();
+
+    const intervalId = setInterval(async () => {
+      try {
+        const res = await fetch('/api/db');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.auctions)) {
+            setAuctions((prev) => {
+              const map = new Map<string, AuctionItem>();
+              for (const a of prev) if (a && a.id) map.set(a.id, a);
+              for (const a of data.auctions) if (a && a.id) map.set(a.id, a);
+              const merged = Array.from(map.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+              saveAuctions(merged);
+              return merged;
+            });
+          }
+        }
+      } catch {}
+    }, 3000);
+
+    return () => {
+      unsub();
+      clearInterval(intervalId);
+    };
   }, []);
+
+  // 2. Countdown ticker & automatic auction expiration resolution
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setNowTick(now);
+
+      // Check for expired active auctions
+      setAuctions((prevAuctions) => {
+        let changed = false;
+        let workingUsers = [...allUsers];
+
+        const updatedList = prevAuctions.map((auc) => {
+          if (auc.status === 'ACTIVE' && auc.expiresAt <= now) {
+            changed = true;
+            if (auc.highestBidderUsername) {
+              // High bidder wins!
+              const bidderIdx = workingUsers.findIndex(
+                (u) => u.username.toLowerCase() === auc.highestBidderUsername!.toLowerCase()
+              );
+              if (bidderIdx !== -1) {
+                workingUsers[bidderIdx] = {
+                  ...workingUsers[bidderIdx],
+                  inventory: [
+                    ...(workingUsers[bidderIdx].inventory || []),
+                    { ...auc.card, id: `${auc.card.id}-won-${now}` }
+                  ]
+                };
+              }
+              const sellerIdx = workingUsers.findIndex(
+                (u) => u.username.toLowerCase() === auc.sellerUsername.toLowerCase()
+              );
+              if (sellerIdx !== -1) {
+                workingUsers[sellerIdx] = {
+                  ...workingUsers[sellerIdx],
+                  coins: (workingUsers[sellerIdx].coins || 0) + auc.currentBid
+                };
+              }
+              return { ...auc, status: 'SOLD' as const };
+            } else {
+              // No bids placed. Return card to seller's inventory!
+              const sellerIdx = workingUsers.findIndex(
+                (u) => u.username.toLowerCase() === auc.sellerUsername.toLowerCase()
+              );
+              if (sellerIdx !== -1) {
+                workingUsers[sellerIdx] = {
+                  ...workingUsers[sellerIdx],
+                  inventory: [...(workingUsers[sellerIdx].inventory || []), auc.card]
+                };
+              }
+              return { ...auc, status: 'EXPIRED_UNSOLD' as const };
+            }
+          }
+          return auc;
+        });
+
+        if (changed) {
+          persistUsers(workingUsers);
+          saveAuctions(updatedList);
+          const me = workingUsers.find((u) => u.username.toLowerCase() === currentUser.username.toLowerCase());
+          if (me) {
+            onUpdateUser(me);
+          }
+        }
+
+        return updatedList;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [allUsers, currentUser.username, onUpdateUser]);
+
+  const formatTimeRemaining = (expiresAt: number) => {
+    const diff = expiresAt - nowTick;
+    if (diff <= 0) return 'EXPIRED';
+    const hours = Math.floor(diff / (1000 * 3600));
+    const mins = Math.floor((diff % (1000 * 3600)) / (1000 * 60));
+    const secs = Math.floor((diff % (1000 * 60)) / 1000);
+    return `${hours.toString().padStart(2, '0')}h ${mins.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
+  };
 
   const handleCreateAuction = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,15 +170,15 @@ export const BiddingMarket: React.FC<BiddingMarketProps> = ({
 
     soundFx.playCoinSound();
 
-    // Remove card from seller inventory
+    // Remove card from seller's inventory
     const updatedInventory = currentUser.inventory.filter((c) => c.id !== selectedCardId);
-    const updatedUser: UserAccount = {
+    const updatedCurrentUser: UserAccount = {
       ...currentUser,
       inventory: updatedInventory
     };
 
     const newAuction: AuctionItem = {
-      id: `auc-${Date.now()}`,
+      id: `auc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       sellerUsername: currentUser.username,
       card: cardToList,
       startingBid: startingBidInput,
@@ -69,7 +194,13 @@ export const BiddingMarket: React.FC<BiddingMarketProps> = ({
     setAuctions(updatedAuctions);
     saveAuctions(updatedAuctions);
 
-    onUpdateUser(updatedUser);
+    onUpdateUser(updatedCurrentUser);
+
+    const nextUsers = allUsers.map((u) =>
+      u.username.toLowerCase() === currentUser.username.toLowerCase() ? updatedCurrentUser : u
+    );
+    persistUsers(nextUsers);
+
     setIsCreatingAuction(false);
     setSelectedCardId('');
     alert(`Successfully listed ${cardToList.name} (${cardToList.rating} OVR) on the Bidding Market!`);
@@ -79,12 +210,13 @@ export const BiddingMarket: React.FC<BiddingMarketProps> = ({
     const auc = auctions.find((a) => a.id === auctionId);
     if (!auc || auc.status !== 'ACTIVE') return;
 
-    if (auc.sellerUsername === currentUser.username) {
+    if (auc.sellerUsername.toLowerCase() === currentUser.username.toLowerCase()) {
       alert('You cannot bid on your own player auction!');
       return;
     }
 
-    const minBid = auc.currentBid + 50000;
+    const hasBids = auc.bidHistory && auc.bidHistory.length > 0;
+    const minBid = hasBids ? auc.currentBid + 50000 : auc.startingBid;
     const bidAmount = customBidAmount[auctionId] || minBid;
 
     if (bidAmount < minBid) {
@@ -99,22 +231,42 @@ export const BiddingMarket: React.FC<BiddingMarketProps> = ({
 
     soundFx.playCoinSound();
 
-    // Deduct coins from new bidder
-    const updatedUser: UserAccount = {
+    // Deduct coins from current user
+    const updatedCurrentUser: UserAccount = {
       ...currentUser,
       coins: currentUser.coins - bidAmount
     };
 
-    // If previous highest bidder exists, refund them their coins!
-    if (auc.highestBidderUsername && auc.highestBidderUsername !== currentUser.username) {
-      const prevBidder = allUsers.find(u => u.username === auc.highestBidderUsername);
-      if (prevBidder) {
-        const refundedUser = { ...prevBidder, coins: prevBidder.coins + auc.currentBid };
-        onUpdateUser(refundedUser);
+    let workingUsers = [...allUsers];
+
+    // If previous highest bidder exists (and is not current bidder), refund them!
+    if (
+      auc.highestBidderUsername &&
+      auc.highestBidderUsername.toLowerCase() !== currentUser.username.toLowerCase()
+    ) {
+      const prevBidderIdx = workingUsers.findIndex(
+        (u) => u.username.toLowerCase() === auc.highestBidderUsername!.toLowerCase()
+      );
+      if (prevBidderIdx !== -1) {
+        workingUsers[prevBidderIdx] = {
+          ...workingUsers[prevBidderIdx],
+          coins: (workingUsers[prevBidderIdx].coins || 0) + auc.currentBid
+        };
       }
     }
 
-    onUpdateUser(updatedUser);
+    // Update current user in workingUsers
+    const curUserIdx = workingUsers.findIndex(
+      (u) => u.username.toLowerCase() === currentUser.username.toLowerCase()
+    );
+    if (curUserIdx !== -1) {
+      workingUsers[curUserIdx] = updatedCurrentUser;
+    } else {
+      workingUsers.push(updatedCurrentUser);
+    }
+
+    persistUsers(workingUsers);
+    onUpdateUser(updatedCurrentUser);
 
     const updatedAuctions = auctions.map((a) => {
       if (a.id === auctionId) {
@@ -124,7 +276,7 @@ export const BiddingMarket: React.FC<BiddingMarketProps> = ({
           highestBidderUsername: currentUser.username,
           bidHistory: [
             { bidderUsername: currentUser.username, amount: bidAmount, timestamp: Date.now() },
-            ...a.bidHistory
+            ...(a.bidHistory || [])
           ]
         };
       }
@@ -133,6 +285,7 @@ export const BiddingMarket: React.FC<BiddingMarketProps> = ({
 
     setAuctions(updatedAuctions);
     saveAuctions(updatedAuctions);
+    setCustomBidAmount((prev) => ({ ...prev, [auctionId]: bidAmount + 50000 }));
     alert(`Your bid of 🪙 ${bidAmount.toLocaleString()} FC Coins was placed successfully!`);
   };
 
@@ -140,7 +293,7 @@ export const BiddingMarket: React.FC<BiddingMarketProps> = ({
     const auc = auctions.find((a) => a.id === auctionId);
     if (!auc || auc.status !== 'ACTIVE') return;
 
-    if (auc.sellerUsername === currentUser.username) {
+    if (auc.sellerUsername.toLowerCase() === currentUser.username.toLowerCase()) {
       alert('You cannot buy your own listed auction!');
       return;
     }
@@ -152,21 +305,53 @@ export const BiddingMarket: React.FC<BiddingMarketProps> = ({
 
     soundFx.playFanfare();
 
-    // Transfer card to buyer and deduct coins
-    const updatedUser: UserAccount = {
+    let workingUsers = [...allUsers];
+
+    // 1. If previous highest bidder exists (and is not current buyer), refund them!
+    if (
+      auc.highestBidderUsername &&
+      auc.highestBidderUsername.toLowerCase() !== currentUser.username.toLowerCase()
+    ) {
+      const prevBidderIdx = workingUsers.findIndex(
+        (u) => u.username.toLowerCase() === auc.highestBidderUsername!.toLowerCase()
+      );
+      if (prevBidderIdx !== -1) {
+        workingUsers[prevBidderIdx] = {
+          ...workingUsers[prevBidderIdx],
+          coins: (workingUsers[prevBidderIdx].coins || 0) + auc.currentBid
+        };
+      }
+    }
+
+    // 2. Give coins to seller
+    const sellerIdx = workingUsers.findIndex(
+      (u) => u.username.toLowerCase() === auc.sellerUsername.toLowerCase()
+    );
+    if (sellerIdx !== -1) {
+      workingUsers[sellerIdx] = {
+        ...workingUsers[sellerIdx],
+        coins: (workingUsers[sellerIdx].coins || 0) + auc.buyNowPrice
+      };
+    }
+
+    // 3. Deduct coins and add card to buyer (currentUser)
+    const updatedCurrentUser: UserAccount = {
       ...currentUser,
       coins: currentUser.coins - auc.buyNowPrice,
       inventory: [...currentUser.inventory, { ...auc.card, id: `${auc.card.id}-bought-${Date.now()}` }]
     };
 
-    // Give coins to seller
-    const seller = allUsers.find(u => u.username === auc.sellerUsername);
-    if (seller) {
-      const updatedSeller = { ...seller, coins: seller.coins + auc.buyNowPrice };
-      onUpdateUser(updatedSeller);
+    const curUserIdx = workingUsers.findIndex(
+      (u) => u.username.toLowerCase() === currentUser.username.toLowerCase()
+    );
+    if (curUserIdx !== -1) {
+      workingUsers[curUserIdx] = updatedCurrentUser;
+    } else {
+      workingUsers.push(updatedCurrentUser);
     }
 
-    onUpdateUser(updatedUser);
+    persistUsers(workingUsers);
+    onUpdateUser(updatedCurrentUser);
 
     const updatedAuctions = auctions.map((a) => {
       if (a.id === auctionId) {
@@ -184,8 +369,9 @@ export const BiddingMarket: React.FC<BiddingMarketProps> = ({
     alert(`🎉 Congratulations! You bought ${auc.card.name} (${auc.card.rating} OVR) for 🪙 ${auc.buyNowPrice.toLocaleString()} Coins!`);
   };
 
-  const activeAuctions = auctions.filter(a => a.status === 'ACTIVE');
-  const myListings = auctions.filter(a => a.sellerUsername === currentUser.username);
+  const activeAuctions = auctions.filter((a) => a.status === 'ACTIVE' && a.expiresAt > nowTick);
+  const myListings = auctions.filter((a) => a.sellerUsername.toLowerCase() === currentUser.username.toLowerCase());
+  const historyAuctions = auctions.filter((a) => a.status !== 'ACTIVE' || a.expiresAt <= nowTick);
 
   return (
     <div id="bidding-market-container" className="w-full flex flex-col gap-6">
@@ -307,7 +493,7 @@ export const BiddingMarket: React.FC<BiddingMarketProps> = ({
       )}
 
       {/* Tabs */}
-      <div className="flex bg-neutral-900 p-1 rounded-2xl border border-white/10 max-w-md">
+      <div className="flex bg-neutral-900 p-1 rounded-2xl border border-white/10 max-w-lg">
         <button
           onClick={() => setActiveTab('LIVE_AUCTIONS')}
           className={`flex-1 py-2 rounded-xl text-xs font-black transition uppercase tracking-wider ${
@@ -316,7 +502,7 @@ export const BiddingMarket: React.FC<BiddingMarketProps> = ({
               : 'text-gray-400 hover:text-white'
           }`}
         >
-          ALL LIVE AUCTIONS ({activeAuctions.length})
+          LIVE AUCTIONS ({activeAuctions.length})
         </button>
         <button
           onClick={() => setActiveTab('MY_LISTINGS')}
@@ -328,111 +514,184 @@ export const BiddingMarket: React.FC<BiddingMarketProps> = ({
         >
           MY LISTINGS ({myListings.length})
         </button>
+        <button
+          onClick={() => setActiveTab('HISTORY')}
+          className={`flex-1 py-2 rounded-xl text-xs font-black transition uppercase tracking-wider ${
+            activeTab === 'HISTORY'
+              ? 'bg-cyan-500 text-black shadow-lg'
+              : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          ENDED ({historyAuctions.length})
+        </button>
       </div>
 
       {/* Auction Items Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {(activeTab === 'LIVE_AUCTIONS' ? activeAuctions : myListings).map((auc) => (
-          <div
-            key={auc.id}
-            className="bg-neutral-900 border-2 border-white/10 hover:border-cyan-400/60 rounded-3xl p-5 flex flex-col gap-4 shadow-xl transition relative overflow-hidden"
-          >
-            {/* Status Badge */}
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400 bg-white/5 px-2.5 py-1 rounded-full border border-white/10">
-                Seller: <span className="text-cyan-400 font-black">@{auc.sellerUsername}</span>
-              </span>
-              {auc.status === 'SOLD' ? (
-                <span className="bg-green-500 text-black font-black text-[10px] px-2.5 py-0.5 rounded-full uppercase">
-                  SOLD ✅
-                </span>
-              ) : (
-                <span className="bg-cyan-950 text-cyan-300 border border-cyan-500/40 font-mono text-[10px] px-2.5 py-0.5 rounded-full">
-                  ⏱️ Live
-                </span>
-              )}
-            </div>
+        {(activeTab === 'LIVE_AUCTIONS'
+          ? activeAuctions
+          : activeTab === 'MY_LISTINGS'
+          ? myListings
+          : historyAuctions
+        ).map((auc) => {
+          const hasBids = auc.bidHistory && auc.bidHistory.length > 0;
+          const minBid = hasBids ? auc.currentBid + 50000 : auc.startingBid;
+          const isMyListing = auc.sellerUsername.toLowerCase() === currentUser.username.toLowerCase();
+          const isHighestBidder = auc.highestBidderUsername?.toLowerCase() === currentUser.username.toLowerCase();
+          const timeText = formatTimeRemaining(auc.expiresAt);
 
-            {/* FC Card Preview */}
-            <div className="flex justify-center my-1 scale-95 hover:scale-100 transition duration-300">
-              <FCPlayerCard card={auc.card} size="md" />
-            </div>
-
-            {/* Bid Info Box */}
-            <div className="bg-black/80 rounded-2xl p-3 border border-white/10 space-y-2 font-mono text-xs">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-400 text-[10px] uppercase">Current High Bid</span>
-                <span className="text-amber-400 font-black text-sm">
-                  🪙 {auc.currentBid.toLocaleString()}
+          return (
+            <div
+              key={auc.id}
+              className={`bg-neutral-900 border-2 ${
+                isHighestBidder ? 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.3)]' : 'border-white/10 hover:border-cyan-400/60'
+              } rounded-3xl p-5 flex flex-col gap-4 shadow-xl transition relative overflow-hidden`}
+            >
+              {/* Status Badge */}
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400 bg-white/5 px-2.5 py-1 rounded-full border border-white/10">
+                  Seller: <span className="text-cyan-400 font-black">@{auc.sellerUsername}</span>
                 </span>
+                {auc.status === 'SOLD' ? (
+                  <span className="bg-green-500 text-black font-black text-[10px] px-2.5 py-0.5 rounded-full uppercase">
+                    SOLD ✅
+                  </span>
+                ) : auc.status === 'EXPIRED_UNSOLD' || (auc.status === 'ACTIVE' && auc.expiresAt <= nowTick) ? (
+                  <span className="bg-red-500/20 text-red-400 border border-red-500/40 font-mono text-[10px] px-2.5 py-0.5 rounded-full">
+                    EXPIRED 🛑
+                  </span>
+                ) : (
+                  <span className="bg-cyan-950 text-cyan-300 border border-cyan-500/40 font-mono text-[10px] px-2.5 py-0.5 rounded-full font-bold">
+                    ⏱️ {timeText}
+                  </span>
+                )}
               </div>
 
-              <div className="flex justify-between items-center text-[11px]">
-                <span className="text-gray-400">Highest Bidder</span>
-                <span className="text-emerald-400 font-bold">
-                  {auc.highestBidderUsername ? `@${auc.highestBidderUsername}` : 'No bids yet'}
-                </span>
+              {/* FC Card Preview */}
+              <div className="flex justify-center my-1 scale-95 hover:scale-100 transition duration-300">
+                <FCPlayerCard card={auc.card} size="md" />
               </div>
 
-              <div className="flex justify-between items-center border-t border-white/10 pt-2 text-[11px]">
-                <span className="text-gray-400">Buy It Now</span>
-                <span className="text-cyan-300 font-black">
-                  🪙 {auc.buyNowPrice.toLocaleString()}
-                </span>
-              </div>
-            </div>
-
-            {/* Actions */}
-            {auc.status === 'ACTIVE' && auc.sellerUsername !== currentUser.username && (
-              <div className="space-y-2 pt-1">
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    step={50000}
-                    placeholder={`Min 🪙 ${(auc.currentBid + 50000).toLocaleString()}`}
-                    value={customBidAmount[auc.id] || ''}
-                    onChange={(e) =>
-                      setCustomBidAmount({ ...customBidAmount, [auc.id]: Number(e.target.value) })
-                    }
-                    className="flex-1 bg-black/80 border border-white/20 rounded-xl px-3 py-1.5 text-white font-mono text-xs focus:outline-none focus:border-cyan-400"
-                  />
-                  <button
-                    onClick={() => handlePlaceBid(auc.id)}
-                    className="px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs uppercase tracking-wider rounded-xl cursor-pointer shadow transition"
-                  >
-                    PLACE BID 🔨
-                  </button>
+              {/* Bid Info Box */}
+              <div className="bg-black/80 rounded-2xl p-3 border border-white/10 space-y-2 font-mono text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400 text-[10px] uppercase">
+                    {hasBids ? 'Current High Bid' : 'Starting Bid'}
+                  </span>
+                  <span className="text-amber-400 font-black text-sm">
+                    🪙 {auc.currentBid.toLocaleString()}
+                  </span>
                 </div>
 
-                <button
-                  onClick={() => handleBuyNow(auc.id)}
-                  className="w-full py-2.5 bg-gradient-to-r from-cyan-400 to-teal-400 hover:from-cyan-300 hover:to-teal-300 text-black font-black text-xs uppercase tracking-wider rounded-xl shadow cursor-pointer transition"
-                >
-                  BUY NOW FOR 🪙 {auc.buyNowPrice.toLocaleString()} ⚡
-                </button>
-              </div>
-            )}
+                <div className="flex justify-between items-center text-[11px]">
+                  <span className="text-gray-400">Highest Bidder</span>
+                  <span className={`font-bold ${isHighestBidder ? 'text-amber-300 underline font-black' : 'text-emerald-400'}`}>
+                    {auc.highestBidderUsername ? `@${auc.highestBidderUsername}` : 'No bids yet'}
+                  </span>
+                </div>
 
-            {/* Bid History */}
-            {auc.bidHistory.length > 0 && (
-              <div className="text-[10px] font-mono text-gray-400 border-t border-white/10 pt-2 space-y-1">
-                <div className="font-bold text-gray-300 uppercase">Recent Bid Logs:</div>
-                {auc.bidHistory.slice(0, 3).map((b, i) => (
-                  <div key={i} className="flex justify-between text-gray-400">
-                    <span>@{b.bidderUsername}</span>
-                    <span className="text-amber-300 font-bold">🪙 {b.amount.toLocaleString()}</span>
+                <div className="flex justify-between items-center border-t border-white/10 pt-2 text-[11px]">
+                  <span className="text-gray-400">Buy It Now</span>
+                  <span className="text-cyan-300 font-black">
+                    🪙 {auc.buyNowPrice.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Actions */}
+              {auc.status === 'ACTIVE' && auc.expiresAt > nowTick && !isMyListing && (
+                <div className="space-y-2 pt-1">
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      step={50000}
+                      min={minBid}
+                      placeholder={`Min 🪙 ${minBid.toLocaleString()}`}
+                      value={customBidAmount[auc.id] !== undefined ? customBidAmount[auc.id] : ''}
+                      onChange={(e) =>
+                        setCustomBidAmount({ ...customBidAmount, [auc.id]: Number(e.target.value) })
+                      }
+                      className="flex-1 bg-black/80 border border-white/20 rounded-xl px-3 py-1.5 text-white font-mono text-xs focus:outline-none focus:border-cyan-400"
+                    />
+                    <button
+                      onClick={() => handlePlaceBid(auc.id)}
+                      className="px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs uppercase tracking-wider rounded-xl cursor-pointer shadow transition"
+                    >
+                      PLACE BID 🔨
+                    </button>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
 
-        {(activeTab === 'LIVE_AUCTIONS' ? activeAuctions : myListings).length === 0 && (
+                  {/* Quick Increment Chips */}
+                  <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-400 justify-end">
+                    <span>Quick:</span>
+                    <button
+                      onClick={() => setCustomBidAmount({ ...customBidAmount, [auc.id]: minBid })}
+                      className="px-2 py-0.5 bg-white/10 hover:bg-white/20 rounded text-cyan-300 cursor-pointer"
+                    >
+                      Min
+                    </button>
+                    <button
+                      onClick={() => setCustomBidAmount({ ...customBidAmount, [auc.id]: minBid + 100000 })}
+                      className="px-2 py-0.5 bg-white/10 hover:bg-white/20 rounded text-amber-300 cursor-pointer"
+                    >
+                      +100k
+                    </button>
+                    <button
+                      onClick={() => setCustomBidAmount({ ...customBidAmount, [auc.id]: minBid + 250000 })}
+                      className="px-2 py-0.5 bg-white/10 hover:bg-white/20 rounded text-emerald-300 cursor-pointer"
+                    >
+                      +250k
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => handleBuyNow(auc.id)}
+                    className="w-full py-2.5 bg-gradient-to-r from-cyan-400 to-teal-400 hover:from-cyan-300 hover:to-teal-300 text-black font-black text-xs uppercase tracking-wider rounded-xl shadow cursor-pointer transition"
+                  >
+                    BUY NOW FOR 🪙 {auc.buyNowPrice.toLocaleString()} ⚡
+                  </button>
+                </div>
+              )}
+
+              {/* Owner Indicator */}
+              {isMyListing && auc.status === 'ACTIVE' && (
+                <div className="text-[11px] font-mono text-cyan-300 text-center bg-cyan-950/60 p-2 rounded-xl border border-cyan-500/30">
+                  👑 This is your listed auction item
+                </div>
+              )}
+
+              {/* Bid History */}
+              {auc.bidHistory && auc.bidHistory.length > 0 && (
+                <div className="text-[10px] font-mono text-gray-400 border-t border-white/10 pt-2 space-y-1">
+                  <div className="font-bold text-gray-300 uppercase">Recent Bid Logs ({auc.bidHistory.length}):</div>
+                  {auc.bidHistory.slice(0, 3).map((b, i) => (
+                    <div key={i} className="flex justify-between text-gray-400">
+                      <span>@{b.bidderUsername}</span>
+                      <span className="text-amber-300 font-bold">🪙 {b.amount.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {(activeTab === 'LIVE_AUCTIONS'
+          ? activeAuctions
+          : activeTab === 'MY_LISTINGS'
+          ? myListings
+          : historyAuctions
+        ).length === 0 && (
           <div className="col-span-full bg-neutral-900 border border-white/10 rounded-3xl p-12 text-center text-gray-400">
             <div className="text-4xl mb-3">🔨</div>
-            <h3 className="text-lg font-black text-white">NO ACTIVE AUCTIONS FOUND</h3>
-            <p className="text-xs text-gray-500 mt-1">Be the first player to place a card up for auction!</p>
+            <h3 className="text-lg font-black text-white">NO AUCTIONS IN THIS TAB</h3>
+            <p className="text-xs text-gray-500 mt-1">
+              {activeTab === 'LIVE_AUCTIONS'
+                ? 'Be the first player to place a card up for live auction!'
+                : activeTab === 'MY_LISTINGS'
+                ? 'You currently have no active player listings.'
+                : 'No ended or expired auctions recorded yet.'}
+            </p>
           </div>
         )}
       </div>

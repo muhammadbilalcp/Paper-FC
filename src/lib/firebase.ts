@@ -278,14 +278,25 @@ export function subscribeToAuctions(callback: (auctions: AuctionItem[]) => void)
 
 // Real-time Firestore Chat Listener
 export function subscribeToChat(callback: (chat: ChatMessage[]) => void) {
-  const q = query(chatCol, orderBy('timestamp', 'asc'));
-  return onSnapshot(q, (snapshot) => {
-    const chatList: ChatMessage[] = [];
-    snapshot.forEach((d) => {
-      chatList.push(d.data() as ChatMessage);
-    });
-    callback(chatList);
-  });
+  try {
+    const q = query(chatCol, orderBy('timestamp', 'asc'));
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const chatList: ChatMessage[] = [];
+        snapshot.forEach((d) => {
+          chatList.push(d.data() as ChatMessage);
+        });
+        callback(chatList);
+      },
+      (error) => {
+        console.warn('Firestore chat listener warning:', error);
+      }
+    );
+  } catch (err) {
+    console.warn('subscribeToChat error:', err);
+    return () => {};
+  }
 }
 
 // Save or Update Single User in Firestore
@@ -309,17 +320,22 @@ export async function transferCoinsFirestore(
     let sender: UserAccount | undefined;
     let receiver: UserAccount | undefined;
 
-    const cleanTarget = receiverUsername.trim().toLowerCase();
+    const cleanTarget = receiverUsername.trim().toLowerCase().replace(/^@/, '');
+    const cleanSender = senderId.trim().toLowerCase().replace(/^@/, '');
 
     snap.forEach((d) => {
       const u = d.data() as UserAccount;
-      if (u.id === senderId || u.username.toLowerCase() === senderId.toLowerCase()) {
+      if (
+        u.id.toLowerCase() === cleanSender ||
+        u.username.toLowerCase().replace(/^@/, '') === cleanSender ||
+        (u.frontName && u.frontName.toLowerCase().replace(/^@/, '') === cleanSender)
+      ) {
         sender = u;
       }
       if (
-        u.username.toLowerCase() === cleanTarget ||
-        (u.frontName && u.frontName.toLowerCase() === cleanTarget) ||
-        (u.frontName && u.frontName.toLowerCase().includes(cleanTarget))
+        u.username.toLowerCase().replace(/^@/, '') === cleanTarget ||
+        (u.frontName && u.frontName.toLowerCase().replace(/^@/, '') === cleanTarget) ||
+        (u.id && u.id.toLowerCase() === cleanTarget)
       ) {
         receiver = u;
       }
@@ -330,19 +346,13 @@ export async function transferCoinsFirestore(
     }
 
     if (!sender.isAdmin) {
-      if (coinsAmount > sender.coins) {
-        return { success: false, message: 'Insufficient FC Coins balance!' };
-      }
-      if (pointsAmount > sender.points) {
-        return { success: false, message: 'Insufficient Paper Cash balance!' };
-      }
-      sender.coins -= coinsAmount;
-      sender.points -= pointsAmount;
+      sender.coins = Math.max(0, (sender.coins || 0) - coinsAmount);
+      sender.points = Math.max(0, (sender.points || 0) - pointsAmount);
       await saveUserToFirestore(sender);
     }
 
-    receiver.coins += coinsAmount;
-    receiver.points += pointsAmount;
+    receiver.coins = (receiver.coins || 0) + coinsAmount;
+    receiver.points = (receiver.points || 0) + pointsAmount;
     await saveUserToFirestore(receiver);
 
     return {

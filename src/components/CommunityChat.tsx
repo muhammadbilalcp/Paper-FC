@@ -38,14 +38,55 @@ export const CommunityChat: React.FC<CommunityChatProps> = ({ currentUser, allUs
   const friendUsernames: string[] = currentUser.friends || [];
   const friendObjects = availableUsers.filter((u) => friendUsernames.includes(u.username));
 
+  // Helper to merge and deduplicate chat messages chronologically
+  const mergeMessages = (existing: ChatMessage[], fresh: ChatMessage[]): ChatMessage[] => {
+    const map = new Map<string, ChatMessage>();
+    for (const m of existing) {
+      if (m && m.id) map.set(m.id, m);
+    }
+    for (const m of fresh) {
+      if (m && m.id) map.set(m.id, m);
+    }
+    return Array.from(map.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  };
+
   useEffect(() => {
-    setMessages(getChatMessages());
+    // 1. Initial load from localStorage
+    const localMsgs = getChatMessages();
+    setMessages(localMsgs);
+
+    // 2. Real-time Firestore listener (merge fresh items, do not wipe out local)
     const unsub = subscribeToChat((freshMessages) => {
-      if (freshMessages) {
-        setMessages(freshMessages);
+      if (freshMessages && Array.isArray(freshMessages)) {
+        setMessages((prev) => {
+          const merged = mergeMessages(prev, freshMessages);
+          saveChatMessages(merged);
+          return merged;
+        });
       }
     });
-    return () => unsub();
+
+    // 3. Fallback polling from Express server every 2.5 seconds
+    const intervalId = setInterval(async () => {
+      try {
+        const res = await fetch('/api/db');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.chat) && data.chat.length > 0) {
+            setMessages((prev) => {
+              const merged = mergeMessages(prev, data.chat);
+              saveChatMessages(merged);
+              return merged;
+            });
+          }
+        }
+      } catch {}
+    }, 2500);
+
+    return () => {
+      unsub();
+      clearInterval(intervalId);
+    };
   }, []);
 
   useEffect(() => {
@@ -97,7 +138,7 @@ export const CommunityChat: React.FC<CommunityChatProps> = ({ currentUser, allUs
     soundFx.playClick();
 
     const newMessage: ChatMessage = {
-      id: `chat-${Date.now()}`,
+      id: `chat-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       senderUsername: currentUser.username,
       senderFrontName: currentUser.frontName || currentUser.username,
       senderAvatar: currentUser.avatarUrl,
@@ -113,9 +154,18 @@ export const CommunityChat: React.FC<CommunityChatProps> = ({ currentUser, allUs
         : {})
     };
 
-    const updated = [...messages, newMessage];
-    setMessages(updated);
-    saveChatMessages(updated);
+    setMessages((prev) => {
+      const updated = mergeMessages(prev, [newMessage]);
+      saveChatMessages(updated);
+      return updated;
+    });
+
+    // Send to Express server backend
+    fetch('/api/chat/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: newMessage })
+    }).catch(() => {});
 
     // Save directly to Firestore doc
     setDoc(doc(chatCol, newMessage.id), newMessage).catch(() => {});

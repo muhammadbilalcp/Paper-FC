@@ -445,20 +445,33 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
                 RECIPIENT PLAYER ACCOUNT
               </label>
-              <select
-                value={targetRecipient}
-                onChange={(e) => setTargetRecipient(e.target.value)}
-                className="w-full bg-neutral-900 border border-white/20 rounded-xl px-3 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
-              >
-                <option value="">Select player account...</option>
-                {allUsers
-                  .filter((u) => u.username !== currentUser.username)
-                  .map((u) => (
-                    <option key={u.id} value={u.username}>
-                      @{u.username} ({u.frontName || u.username}) - Bal: 🪙 {u.coins.toLocaleString()}
-                    </option>
-                  ))}
-              </select>
+              <div className="space-y-2">
+                <select
+                  value={targetRecipient}
+                  onChange={(e) => setTargetRecipient(e.target.value)}
+                  className="w-full bg-neutral-900 border border-white/20 rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+                >
+                  <option value="">-- Select player from list --</option>
+                  {allUsers
+                    .filter((u) => u.username.toLowerCase() !== currentUser.username.toLowerCase())
+                    .map((u) => (
+                      <option key={u.id} value={u.username}>
+                        @{u.username} ({u.frontName || u.username}) - Bal: 🪙 {(u.coins || 0).toLocaleString()}
+                      </option>
+                    ))}
+                </select>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-gray-400 font-mono whitespace-nowrap">OR TYPE:</span>
+                  <input
+                    type="text"
+                    placeholder="Enter username e.g. Hamad or @Hamad..."
+                    value={targetRecipient}
+                    onChange={(e) => setTargetRecipient(e.target.value)}
+                    className="w-full bg-neutral-900 border border-white/20 rounded-xl px-3 py-1.5 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
             </div>
 
             <div>
@@ -467,8 +480,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               </label>
               <input
                 type="number"
-                min="1000"
-                step="1000"
+                min="1"
+                step="1"
                 value={transferAmount}
                 onChange={(e) => setTransferAmount(Number(e.target.value))}
                 className="w-full bg-neutral-900 border border-white/20 rounded-xl px-3 py-2 text-amber-300 font-mono font-bold text-sm focus:outline-none focus:border-amber-400"

@@ -288,21 +288,78 @@ export async function transferCoinsApi(
   coinsAmount: number,
   pointsAmount: number = 0
 ): Promise<{ success: boolean; message: string; allUsers?: UserAccount[] }> {
-  const currentUsers = getStoredUsers();
-  const cleanTarget = receiverUsername.trim().toLowerCase();
+  let currentUsers = getStoredUsers();
+  const cleanTarget = receiverUsername.trim().toLowerCase().replace(/^@/, '');
+  const cleanSender = senderId.trim().toLowerCase().replace(/^@/, '');
 
-  // 1. Calculate updated users locally
+  let senderObj = currentUsers.find(
+    (u) =>
+      u.id.toLowerCase() === cleanSender ||
+      u.username.toLowerCase().replace(/^@/, '') === cleanSender ||
+      (u.frontName && u.frontName.toLowerCase().replace(/^@/, '') === cleanSender)
+  );
+
+  let receiverObj = currentUsers.find(
+    (u) =>
+      u.username.toLowerCase().replace(/^@/, '') === cleanTarget ||
+      (u.frontName && u.frontName.toLowerCase().replace(/^@/, '') === cleanTarget) ||
+      (u.id && u.id.toLowerCase() === cleanTarget)
+  );
+
+  // Fallback check from Express database if not found in local memory
+  if (!senderObj || !receiverObj) {
+    try {
+      const res = await fetch('/api/db');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.users) && data.users.length > 0) {
+          currentUsers = data.users;
+          senderObj = currentUsers.find(
+            (u) =>
+              u.id.toLowerCase() === cleanSender ||
+              u.username.toLowerCase().replace(/^@/, '') === cleanSender ||
+              (u.frontName && u.frontName.toLowerCase().replace(/^@/, '') === cleanSender)
+          );
+          receiverObj = currentUsers.find(
+            (u) =>
+              u.username.toLowerCase().replace(/^@/, '') === cleanTarget ||
+              (u.frontName && u.frontName.toLowerCase().replace(/^@/, '') === cleanTarget) ||
+              (u.id && u.id.toLowerCase() === cleanTarget)
+          );
+        }
+      }
+    } catch {}
+  }
+
+  if (!senderObj) {
+    return { success: false, message: 'Sender account session not found! Please log in again.' };
+  }
+
+  if (!receiverObj) {
+    return { success: false, message: `Receiver account "${receiverUsername}" not found!` };
+  }
+
+  if (senderObj.id === receiverObj.id || senderObj.username.toLowerCase() === receiverObj.username.toLowerCase()) {
+    return { success: false, message: 'You cannot send coins to yourself!' };
+  }
+
+  if (!senderObj.isAdmin && (senderObj.coins || 0) < coinsAmount) {
+    return {
+      success: false,
+      message: `Insufficient FC Coins! You have 🪙 ${(senderObj.coins || 0).toLocaleString()}`
+    };
+  }
+
+  // Calculate updated user objects
   const updatedUsers = currentUsers.map((u) => {
-    const isSender = u.id === senderId || u.username.toLowerCase() === senderId.toLowerCase();
-    const isReceiver =
-      u.username.toLowerCase() === cleanTarget ||
-      (u.frontName && u.frontName.toLowerCase() === cleanTarget);
+    const isSender = u.id === senderObj!.id || u.username === senderObj!.username;
+    const isReceiver = u.id === receiverObj!.id || u.username === receiverObj!.username;
 
-    if (isSender && !u.isAdmin) {
+    if (isSender) {
       return {
         ...u,
-        coins: Math.max(0, u.coins - coinsAmount),
-        points: Math.max(0, u.points - pointsAmount)
+        coins: u.isAdmin ? u.coins : Math.max(0, (u.coins || 0) - coinsAmount),
+        points: u.isAdmin ? u.points : Math.max(0, (u.points || 0) - pointsAmount)
       };
     }
     if (isReceiver) {
@@ -315,10 +372,9 @@ export async function transferCoinsApi(
     return u;
   });
 
-  // Save to localStorage immediately
   saveUsers(updatedUsers);
 
-  // 2. Sync to Express server backend first so backend memory state is updated
+  // Sync to Express backend server
   try {
     await fetch('/api/users/save-all', {
       method: 'POST',
@@ -328,22 +384,20 @@ export async function transferCoinsApi(
     await fetch('/api/users/transfer-coins', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ senderId, receiverUsername, coinsAmount, pointsAmount })
+      body: JSON.stringify({ senderId: senderObj.id, receiverUsername: receiverObj.username, coinsAmount, pointsAmount })
     });
   } catch (err) {
     console.warn('Express server transfer sync error:', err);
   }
 
-  // 3. Sync to Firebase Firestore
-  const firestoreRes = await transferCoinsFirestore(senderId, receiverUsername, coinsAmount, pointsAmount);
-
-  if (firestoreRes.success) {
-    return { success: true, message: firestoreRes.message, allUsers: updatedUsers };
-  }
+  // Sync to Firebase Firestore
+  transferCoinsFirestore(senderObj.id, receiverObj.username, coinsAmount, pointsAmount).catch((err) => {
+    console.warn('Firestore transfer warning:', err);
+  });
 
   return {
     success: true,
-    message: `Successfully sent 🪙 ${coinsAmount.toLocaleString()} FC Coins to @${receiverUsername}!`,
+    message: `Successfully transferred 🪙 ${coinsAmount.toLocaleString()} FC Coins to @${receiverObj.username}!`,
     allUsers: updatedUsers
   };
 }
